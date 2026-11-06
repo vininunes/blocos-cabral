@@ -522,6 +522,24 @@ export class Base {
     return this.provisoesDe(cliente)
   }
 
+  /**
+   * Lança o mesmo valor (R$ por dia útil a partir de `inicio`) para vários clientes. Os
+   * lançamentos anteriores ficam (o novo vale a partir da sua data); se o cliente já tem um
+   * lançamento nessa data, ele é substituído.
+   */
+  lancarProvisaoEmLote(
+    clientes: string[],
+    lancamento: Pick<Provisao, 'inicio' | 'valor_dia' | 'observacao'>
+  ) {
+    const unicos = [...new Set(clientes.filter(Boolean))]
+    if (!unicos.length) throw new Error('Selecione ao menos um cliente.')
+    for (const cliente of unicos) {
+      const atuais = this.provisoesDe(cliente).filter((p) => p.inicio !== lancamento.inicio)
+      this.salvarProvisoes(cliente, [...atuais, lancamento])
+    }
+    return unicos.length
+  }
+
   // ------------------------------------------------------------ desfazer importação
 
   /**

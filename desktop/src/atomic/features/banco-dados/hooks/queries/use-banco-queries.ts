@@ -9,6 +9,7 @@ import {
   fetchEstadoBanco,
   fetchProvisoes,
   fetchTabelaBanco,
+  lancarProvisaoEmLote,
   salvarClientes,
   salvarProvisoes,
 } from '../../api/http-banco'
@@ -75,6 +76,14 @@ export function useSalvarProvisoesMutation() {
       cliente: string
       pedido: Parameters<typeof salvarProvisoes>[1]
     }) => salvarProvisoes(cliente, pedido),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: RELATORIO_BASE_QUERY_KEY }),
+  })
+}
+
+export function useLancarProvisaoEmLoteMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: lancarProvisaoEmLote,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: RELATORIO_BASE_QUERY_KEY }),
   })
 }

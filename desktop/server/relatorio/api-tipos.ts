@@ -194,3 +194,5 @@ export type { Provisao } from './tipos'
 export type { ResultadoProvisao } from './provisao'
 export type LancamentoProvisao = { inicio: DiaIso; valor_dia: number; observacao: string }
 export type PedidoProvisoes = { lancamentos: LancamentoProvisao[] }
+/** POST /api/banco/provisoes-lote: o mesmo lançamento para vários clientes. */
+export type PedidoProvisaoLote = { clientes: string[]; lancamento: LancamentoProvisao }

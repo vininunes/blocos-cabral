@@ -1,13 +1,13 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 import type { RespostaRelatorio } from '@server/relatorio/api-tipos'
 import { fmtMoeda, fmtNum, fmtPct } from '@server/relatorio/utils'
-import { useSetAtom } from 'jotai'
-import { Database, Target } from 'lucide-react'
+import { LineChart, Target } from 'lucide-react'
 
 import { Button } from '@/atomic/base-components/button'
 
 import { DetailsEmptyState } from '@/atomic/components/empty-state/details-empty-state'
+import { PageActionTabs } from '@/atomic/components/page-actions/page-action-tabs'
 
 import {
   GraficoAcumulado,
@@ -16,9 +16,9 @@ import {
 import { GraficoMoldura } from '@/atomic/features/relatorio-graficos/components/grafico-moldura'
 import { RelatorioTabela } from '@/atomic/features/relatorio-tabela/components/relatorio-tabela'
 
-import { telaAtom } from '@/atomic/modules/relatorio/store/relatorio-state'
-
 import { cn } from '@/lib/tailwind/utils'
+
+import { RelatorioProvisaoClientes } from './relatorio-provisao-clientes'
 
 const eixoMil = (v: number) => `R$ ${fmtNum(v / 1000)} mil`
 
@@ -57,7 +57,36 @@ function Cartao({
  * cadastrado em Banco de dados → Clientes) contra o faturamento (notas) desses clientes.
  */
 export function RelatorioProvisao({ rel }: { rel: RespostaRelatorio }) {
-  const setTela = useSetAtom(telaAtom)
+  const [vista, setVista] = useState<'acompanhamento' | 'lancar'>(
+    rel.provisao.clientesComProvisao ? 'acompanhamento' : 'lancar'
+  )
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex shrink-0">
+        <PageActionTabs
+          tabs={[
+            {
+              value: 'acompanhamento',
+              label: 'Acompanhamento',
+              icon: <LineChart className="size-3.5" />,
+            },
+            { value: 'lancar', label: 'Lançar provisão', icon: <Target className="size-3.5" /> },
+          ]}
+          value={vista}
+          onValueChange={(v) => setVista(v as typeof vista)}
+        />
+      </div>
+      {vista === 'lancar' ? (
+        <RelatorioProvisaoClientes />
+      ) : (
+        <Acompanhamento rel={rel} onLancar={() => setVista('lancar')} />
+      )}
+    </div>
+  )
+}
+
+/** Provisionado x realizado no período (cartões, acumulado e tabela por cliente). */
+function Acompanhamento({ rel, onLancar }: { rel: RespostaRelatorio; onLancar: () => void }) {
   const p = rel.provisao
   const { pontos, dias } = useMemo(() => {
     const ac = p.acumulado
@@ -79,10 +108,10 @@ export function RelatorioProvisao({ rel }: { rel: RespostaRelatorio }) {
           className="h-auto"
           icon={<Target />}
           title="Nenhum cliente com provisão neste período"
-          description="Lance a provisão (R$ por dia útil) de cada cliente em Banco de dados → Clientes, na coluna Provisão."
+          description="Lance a provisão (R$ por dia útil) dos clientes na aba Lançar provisão — um a um ou vários de uma vez."
         />
-        <Button variant="outline" onClick={() => setTela('banco')}>
-          <Database className="size-4" /> Abrir Banco de dados
+        <Button variant="outline" onClick={onLancar}>
+          <Target className="size-4" /> Lançar provisão
         </Button>
       </div>
     )

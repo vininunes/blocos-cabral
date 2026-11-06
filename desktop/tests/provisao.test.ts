@@ -82,6 +82,29 @@ describe('provisão', () => {
     expect(r.acumulado.linhas[4][2]).toBeCloseTo(realCliente, 2) // sexta 16/10
   })
 
+  it('lançamento em lote: mesmo valor para vários clientes, mantendo o histórico', async () => {
+    const b = new Base()
+    b.salvarProvisoes('a', [{ inicio: '2026-09-01', valor_dia: 1_000, observacao: '' }])
+    b.salvarProvisoes('b', [{ inicio: '2026-10-01', valor_dia: 9_000, observacao: 'antigo' }])
+    const n = b.lancarProvisaoEmLote(['a', 'b', 'c', 'a'], {
+      inicio: '2026-10-01',
+      valor_dia: 3_000,
+      observacao: 'lote',
+    })
+    expect(n).toBe(3)
+    expect(b.provisoesDe('a').map((p) => [p.inicio, p.valor_dia])).toEqual([
+      ['2026-09-01', 1_000],
+      ['2026-10-01', 3_000],
+    ])
+    expect(b.provisoesDe('b').map((p) => [p.inicio, p.valor_dia, p.observacao])).toEqual([
+      ['2026-10-01', 3_000, 'lote'],
+    ])
+    expect(b.provisoesDe('c').map((p) => p.valor_dia)).toEqual([3_000])
+    expect(() =>
+      b.lancarProvisaoEmLote([], { inicio: '2026-10-01', valor_dia: 1, observacao: '' })
+    ).toThrow()
+  })
+
   it('sem provisão: tudo é realizado sem provisão', async () => {
     const { b } = await baseCom()
     const r = calcularProvisao(b, SEMANA, b.cobertura()[1])

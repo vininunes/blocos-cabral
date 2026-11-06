@@ -3,6 +3,7 @@ import type {
   ConteudoTabela,
   EstadoBanco,
   PedidoClientes,
+  PedidoProvisaoLote,
   PedidoProvisoes,
   Provisao,
   RespostaClientes,
@@ -46,4 +47,9 @@ export async function salvarProvisoes(cliente: string, pedido: PedidoProvisoes) 
       pedido
     )
   ).data
+}
+
+export async function lancarProvisaoEmLote(pedido: PedidoProvisaoLote) {
+  return (await relatorioApiInstance.post<{ clientes: number }>('/banco/provisoes-lote', pedido))
+    .data
 }

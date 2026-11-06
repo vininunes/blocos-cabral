@@ -17,6 +17,7 @@ import type {
   PedidoClientes,
   PedidoFeedback,
   PedidoImportacao,
+  PedidoProvisaoLote,
   PedidoProvisoes,
   PropostaFeedback,
   RespostaRelatorio,
@@ -339,6 +340,12 @@ export function criarServico(
     return base.provisoesDe(cliente)
   }
 
+  function lancarProvisaoEmLote(pedido: PedidoProvisaoLote) {
+    const n = base.lancarProvisaoEmLote(pedido.clientes ?? [], pedido.lancamento)
+    base.salvar()
+    return { clientes: n }
+  }
+
   function salvarProvisoes(cliente: string, pedido: PedidoProvisoes) {
     const r = base.salvarProvisoes(cliente, pedido.lancamentos ?? [])
     base.salvar()
@@ -356,6 +363,7 @@ export function criarServico(
     tabelaBanco,
     provisoes,
     salvarProvisoes,
+    lancarProvisaoEmLote,
     clientes: () => indicadoresClientes(base),
     salvarClientes,
     desfazerImportacao,

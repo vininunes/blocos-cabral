@@ -17,6 +17,7 @@
 //   DELETE /api/banco/arquivos/:hash desfaz a importação de um arquivo (refaz a base sem ele)
 //   GET  /api/banco/provisoes/:cliente  lançamentos de provisão do cliente (R$ por dia útil)
 //   PUT  /api/banco/provisoes/:cliente  troca os lançamentos de provisão do cliente
+//   POST /api/banco/provisoes-lote      o mesmo lançamento de provisão para vários clientes
 //   GET  /api/saida/:nome           baixa um arquivo de saida/
 //   POST /api/saida/:nome/abrir     abre o arquivo no programa padrão (?mostrar=1: mostra na pasta)
 import type { Plugin } from 'vite'
@@ -30,6 +31,7 @@ import type {
   PedidoClientes,
   PedidoFeedback,
   PedidoImportacao,
+  PedidoProvisaoLote,
   PedidoProvisoes,
   TabelaBanco,
 } from './relatorio/api-tipos'
@@ -141,6 +143,14 @@ export function createRelatorioApi(options: RelatorioApiOptions) {
         const pedido = await json<PedidoClientes>(req)
         await exclusivo('Gravação dos clientes', () => servico.salvarClientes(pedido))
         return sendJson(res, 200, { ok: true })
+      }
+      case 'POST /api/banco/provisoes-lote': {
+        const pedido = await json<PedidoProvisaoLote>(req)
+        return sendJson(
+          res,
+          200,
+          await exclusivo('Gravação da provisão', () => servico.lancarProvisaoEmLote(pedido))
+        )
       }
       case 'POST /api/exportar/base':
         return sendJson(

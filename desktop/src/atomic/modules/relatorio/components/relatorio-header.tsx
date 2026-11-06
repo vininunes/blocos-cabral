@@ -10,6 +10,7 @@ import { DESKTOP_PLATFORM, DESKTOP_TITLEBAR_INSET, MAC_BOTOES_JANELA } from '@/c
 import { cn } from '@/lib/tailwind/utils'
 
 import { useJanelaEmFoco } from '../hooks/use-janela-em-foco'
+import { BotoesJanelaWindows } from './botoes-janela-windows'
 
 /**
  * macOS, janela sem foco: o main esconde os botões nativos (quase brancos sobre o header) e
@@ -50,6 +51,7 @@ export function RelatorioHeader({ left, right }: { left?: ReactNode; right?: Rea
       }}
     >
       {DESKTOP_PLATFORM === 'darwin' && !emFoco && <BotoesJanelaInativa />}
+      {DESKTOP_PLATFORM && DESKTOP_PLATFORM !== 'darwin' && <BotoesJanelaWindows />}
       <div className="flex-1 flex gap-2 items-center min-w-0">{left}</div>
 
       <div className="flex gap-3 items-center shrink-0 justify-center">

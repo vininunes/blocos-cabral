@@ -50,7 +50,8 @@ body {
 .desktop-drag-region {
   -webkit-app-region: drag;
 }
-.desktop-drag-region :is(button, input, textarea, select, a, [role='button'], [role='combobox']) {
+.desktop-drag-region :is(button, input, textarea, select, a, [role='button'], [role='combobox']),
+.desktop-no-drag {
   -webkit-app-region: no-drag;
 }
 

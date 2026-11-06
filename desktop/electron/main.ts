@@ -2,7 +2,7 @@
 // demonstration-media/editor: a janela carrega um servidor HTTP interno em 127.0.0.1 —
 // protegido por um token de sessão em cookie — que serve o build da web e a mesma API
 // do `yarn dev` (server/relatorio-api.ts).
-import { app, BrowserWindow, dialog, Menu, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, session, shell } from 'electron'
 import { randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import http from 'node:http'
@@ -16,7 +16,6 @@ const APP_NAME = 'Relatorio Blocos Cabral'
 const SMOKE_TEST = process.env.RELATORIO_SMOKE_TEST === '1'
 /** Mesma cor do header (--background do solid-theme claro). */
 const HEADER_COLOR = '#ffffff'
-const HEADER_SYMBOL_COLOR = '#232f66'
 const HEADER_HEIGHT = 56
 /** Botões da janela no macOS, centralizados no header (ver MAC_BOTOES_JANELA em src/config/desktop.ts). */
 const BOTOES_JANELA = { x: 18, y: (HEADER_HEIGHT - 16) / 2 }
@@ -132,6 +131,20 @@ function applyNavigationPolicy(win: BrowserWindow, origin: string) {
   })
 }
 
+// Botões da janela desenhados pelo header no Windows/Linux (sem a barra de título nativa).
+ipcMain.on('janela:minimizar', (e) => BrowserWindow.fromWebContents(e.sender)?.minimize())
+ipcMain.on('janela:maximizar', (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender)
+  if (!win) return
+  if (win.isMaximized()) win.unmaximize()
+  else win.maximize()
+})
+ipcMain.on('janela:fechar', (e) => BrowserWindow.fromWebContents(e.sender)?.close())
+ipcMain.handle(
+  'janela:estaMaximizada',
+  (e) => BrowserWindow.fromWebContents(e.sender)?.isMaximized() ?? false
+)
+
 function createWindow(origin: string) {
   const win = new BrowserWindow({
     width: 1500,
@@ -141,18 +154,11 @@ function createWindow(origin: string) {
     title: APP_NAME,
     backgroundColor: HEADER_COLOR,
     show: false,
-    // barra de título contínua com o header: no macOS os botões da janela ficam sobre
-    // ele; no Windows/Linux os controles nativos são desenhados na cor do header
+    // barra de título contínua com o header: no macOS os botões nativos da janela ficam sobre
+    // ele; no Windows/Linux o próprio header desenha minimizar/maximizar/fechar (ver
+    // BotoesJanelaWindows), porque o overlay nativo tem hover quase invisível sobre o branco
     titleBarStyle: 'hidden',
-    ...(process.platform === 'darwin'
-      ? { trafficLightPosition: BOTOES_JANELA }
-      : {
-          titleBarOverlay: {
-            color: HEADER_COLOR,
-            symbolColor: HEADER_SYMBOL_COLOR,
-            height: HEADER_HEIGHT,
-          },
-        }),
+    ...(process.platform === 'darwin' ? { trafficLightPosition: BOTOES_JANELA } : {}),
     webPreferences: {
       preload: path.join(app.getAppPath(), 'electron', 'preload.cjs'),
       contextIsolation: true,
@@ -161,6 +167,10 @@ function createWindow(origin: string) {
     },
   })
   applyNavigationPolicy(win, origin)
+  // estado de maximizada para o header trocar o ícone de maximizar/restaurar
+  const avisarMaximizada = () => win.webContents.send('janela:maximizada', win.isMaximized())
+  win.on('maximize', avisarMaximizada)
+  win.on('unmaximize', avisarMaximizada)
   win.once('ready-to-show', () => win.show())
   if (process.platform === 'darwin') {
     // sem foco, o macOS deixa os botões da janela quase brancos sobre o header branco: some

@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-electron
+release
+.tmp
+# design system (cópia em vendor/design-system): não reformatar
+vendor
+# gabarito gerado pelo Python (scripts/gerar-golden.py)
+tests/golden
+server/relatorio/logo.ts

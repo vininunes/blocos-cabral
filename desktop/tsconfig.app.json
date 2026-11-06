@@ -1,0 +1,48 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./.tmp/tsconfig.app.tsbuildinfo",
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+
+    /* Absolute path — design system em vendor/design-system (ver vite.config.ts) */
+    "baseUrl": ".",
+    "paths": {
+      "@/atomic/base-components/*": ["./vendor/design-system/src/atomic/base-components/*"],
+      "@/atomic/components/*": ["./vendor/design-system/src/atomic/components/*"],
+      "@/atomic/features/settings/*": ["./vendor/design-system/src/atomic/features/settings/*"],
+      "@/assets/*": ["./vendor/design-system/src/assets/*"],
+      "@/hooks/*": ["./vendor/design-system/src/hooks/*"],
+      "@/lib/*": ["./vendor/design-system/src/lib/*"],
+      "@/services/query-client": ["./vendor/design-system/src/services/query-client"],
+      "@/services/query-retry": ["./vendor/design-system/src/services/query-retry"],
+      "@/utils/is-editable-target": ["./vendor/design-system/src/utils/is-editable-target"],
+      "@server/*": ["./server/*"],
+      "@/*": ["./src/*"],
+      "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"],
+      "react-dom": ["./node_modules/@types/react-dom"],
+      "react-dom/*": ["./node_modules/@types/react-dom/*"]
+    },
+    "types": ["vite/client", "vite-plugin-svgr/client", "node"]
+  },
+  "include": ["src"]
+}

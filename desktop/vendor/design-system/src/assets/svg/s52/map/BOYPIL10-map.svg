@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="70.4" height="59.8" viewBox="-3.6 -4.86 7.04 5.98" fill-rule="evenodd">
+  <!-- Variante de mapa do S-52 SY(BOYPIL10) (../BOYPIL10.svg): mesma geometria em mm com pivot em (0,0), mais halo branco (OUTLW) por baixo. Anchor em px: (36, 48.6). -->
+  <title>BOYPIL10-map</title>
+  <path d="M -2.41,0 L -0.22,-2.35 L 0.43,-4.32 L 1.4,-4.32 L 1.4,-1.94 L 2.34,0 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.75" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle  cx="0" cy="0" r="0.59" fill="none" stroke="#FFFFFF" stroke-width="1.07" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M -3.07,0 L -0.57,0" fill="none" stroke="#FFFFFF" stroke-width="1.07" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 0.53,0 L 2.9,0" fill="none" stroke="#FFFFFF" stroke-width="1.07" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M -2.41,0 L -0.22,-2.35 L 0.43,-4.32 L 1.4,-4.32 L 1.4,-1.94 L 2.34,0" fill="none" stroke="#FFFFFF" stroke-width="1.07" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="0" cy="0" r="0.45" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.75" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M -2.41,0 L -0.22,-2.35 L 0.43,-4.32 L 1.4,-4.32 L 1.4,-1.94 L 2.34,0 Z" fill="#EA5471"/>
+  <circle stroke-width="0.32"  cx="0" cy="0" r="0.59" fill="none" stroke="#000000"/>
+  <path d="M -3.07,0 L -0.57,0" stroke-width="0.32" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="#000000"/>
+  <path d="M 0.53,0 L 2.9,0" stroke-width="0.32" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="#000000"/>
+  <path d="M -2.41,0 L -0.22,-2.35 L 0.43,-4.32 L 1.4,-4.32 L 1.4,-1.94 L 2.34,0" stroke-width="0.32" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="#000000"/>
+  <circle cx="0" cy="0" r="0.45" fill="#C9EDFF"/>
+</svg>

@@ -1,0 +1,15 @@
+# sistema / ferramentas
+.DS_Store
+.venv/
+.pytest_cache/
+__pycache__/
+
+# dados reais da Blocos Cabral (clientes, CNPJs, valores): não versionar
+entrada/
+dados/
+saida/
+desktop/tests/golden/
+Atualizacao - Comparacao entre periodos.pdf
+
+# builds e instaladores
+dist/

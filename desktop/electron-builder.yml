@@ -1,0 +1,34 @@
+appId: br.com.blocoscabral.relatorio
+productName: Relatorio Blocos Cabral
+copyright: Copyright © Vinicius Nunes Cabral de Souza
+asar: true
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**
+  - dist-electron/**
+  - electron/preload.cjs
+  - build/icon.png
+  - package.json
+mac:
+  category: public.app-category.business
+  icon: build/icon.png
+  target:
+    - dmg
+    - zip
+win:
+  icon: build/icon.png
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Relatorio Blocos Cabral
+publish: null
+toolsets:
+  # bundle NSIS 3.12 unificado (makensis nativo arm64); o legado só tem binário x86 no macOS
+  nsis: 1.2.1

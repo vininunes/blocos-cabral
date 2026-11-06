@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="92.1" height="60.4" viewBox="-4.61 -5.07 9.21 6.04" fill-rule="evenodd">
+  <!-- S-52 SY(BOYSUP01) super-buoy — boias de condição ambiental (ícone de UI, cor = currentColor) -->
+  <circle stroke-width="0.64" cx="0" cy="0" r="0.65" fill="none" stroke="currentColor"/>
+  <path d="M -4.29,0 L -0.69,0" stroke-width="0.64" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="currentColor"/>
+  <path d="M 0.59,0 L 4.28,0" stroke-width="0.64" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="currentColor"/>
+  <path d="M -3.82,0 L -2.85,-2.85 L 2.84,-2.85 L 3.81,0" stroke-width="0.64" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="currentColor"/>
+  <path d="M 0,-2.85 L 0,-4.75" stroke-width="0.64" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="currentColor"/>
+</svg>

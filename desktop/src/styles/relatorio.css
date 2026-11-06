@@ -1,0 +1,61 @@
+/* Tema e tokens do design system (global.css), eixo SÓLIDO
+   (`.solid-theme` no <body>; `.dark` no <html> para o escuro): não há mapa por baixo,
+   então as superfícies são opacas. */
+@import '../../vendor/design-system/src/styles/global.css';
+
+/* O Tailwind só varre o projeto atual; os componentes do design system vêm de fora. */
+@source '../../vendor/design-system/src/atomic/base-components';
+@source '../../vendor/design-system/src/atomic/components';
+
+/* Cores da Blocos Cabral (logo) sobre os tokens do design system. */
+@theme inline {
+  --color-cabral-azul: var(--cabral-azul);
+  --color-cabral-verde: var(--cabral-verde);
+  --color-cabral-grafite: var(--cabral-grafite);
+  --color-cabral-vermelho: var(--cabral-vermelho);
+}
+
+:root {
+  --cabral-azul: #232f66;
+  --cabral-verde: #1e6b34;
+  --cabral-grafite: #2e2a28;
+  --cabral-vermelho: #c03d2b;
+}
+
+.solid-theme {
+  --primary: var(--cabral-azul);
+  --primary-foreground: #ffffff;
+  --ring: var(--cabral-azul);
+  --positive: var(--cabral-verde);
+}
+
+.dark .solid-theme {
+  --cabral-azul: #6a7bc8;
+  --cabral-verde: #3fa35c;
+  --cabral-grafite: #d6d3d1;
+  --cabral-vermelho: #e5735f;
+  --primary: #3b4c99;
+  --primary-foreground: #ffffff;
+  --ring: #6a7bc8;
+  --positive: var(--cabral-verde);
+}
+
+body {
+  /* sobrescreve o backdrop do mapa do design system */
+  background-color: var(--background);
+}
+
+/* App instalado: o header é a barra de título da janela (arrastar move a janela);
+   o que é clicável dentro dele continua clicável. */
+.desktop-drag-region {
+  -webkit-app-region: drag;
+}
+.desktop-drag-region :is(button, input, textarea, select, a, [role='button'], [role='combobox']) {
+  -webkit-app-region: no-drag;
+}
+
+/* Rótulos de valor em balão nos gráficos (ex.: maiores altas e quedas): mesmo fundo do
+   quadro do gráfico (GraficoMoldura: bg-muted/40 sobre o fundo da página) */
+.plot-rotulo-valor path {
+  fill: color-mix(in oklab, var(--muted) 40%, var(--background));
+}

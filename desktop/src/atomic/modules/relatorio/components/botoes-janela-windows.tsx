@@ -6,7 +6,8 @@ import { cn } from '@/lib/tailwind/utils'
  * Minimizar / maximizar (restaurar) / fechar no Windows e no Linux, desenhados pelo header no
  * lugar do overlay nativo: o hover nativo some sobre o header branco e o overlay fica por cima
  * do fundo escurecido dos dialogs. Medidas e cores seguem a barra de título do Windows 11:
- * botões de 46 px, hover cinza, fechar vermelho com ícone branco.
+ * botões de 46 px, hover cinza, fechar vermelho com ícone branco. Ícones de 10 px com
+ * `size-2.5`: sem uma classe `size-*`, o global.css do design system força todo svg a 16 px.
  */
 export function BotoesJanelaWindows() {
   const janela = window.relatorioDesktop?.janela
@@ -33,7 +34,7 @@ export function BotoesJanelaWindows() {
         aria-label="Minimizar"
         title="Minimizar"
       >
-        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+        <svg className="size-2.5" width="10" height="10" viewBox="0 0 10 10" aria-hidden>
           <path d="M0 5.5h10" stroke="currentColor" strokeWidth="1" />
         </svg>
       </button>
@@ -45,12 +46,26 @@ export function BotoesJanelaWindows() {
         title={maximizada ? 'Restaurar' : 'Maximizar'}
       >
         {maximizada ? (
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+          <svg
+            className="size-2.5"
+            width="10"
+            height="10"
+            viewBox="0 0 10 10"
+            fill="none"
+            aria-hidden
+          >
             <path d="M2.5 2.5V.5h7v7h-2" stroke="currentColor" strokeWidth="1" />
             <rect x=".5" y="2.5" width="7" height="7" stroke="currentColor" strokeWidth="1" />
           </svg>
         ) : (
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+          <svg
+            className="size-2.5"
+            width="10"
+            height="10"
+            viewBox="0 0 10 10"
+            fill="none"
+            aria-hidden
+          >
             <rect x=".5" y=".5" width="9" height="9" stroke="currentColor" strokeWidth="1" />
           </svg>
         )}
@@ -65,7 +80,7 @@ export function BotoesJanelaWindows() {
         aria-label="Fechar"
         title="Fechar"
       >
-        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+        <svg className="size-2.5" width="10" height="10" viewBox="0 0 10 10" aria-hidden>
           <path d="M0 0l10 10M10 0L0 10" stroke="currentColor" strokeWidth="1" />
         </svg>
       </button>

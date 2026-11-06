@@ -1,0 +1,353 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@plugin "@tailwindcss/typography";
+
+/* Large static data files dropped into public/data have no Tailwind classes
+   to find, but Tailwind's automatic content scanner still walks them by
+   default — a multi-MB single-line JSON/text blob makes its class candidate
+   regex pathologically slow. Exclude public/data from the scan. */
+@source not "../../public/data";
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+@theme inline {
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-neutral: var(--neutral);
+  --color-background: var(--background);
+  --color-background-flat: var(--background-flat);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-positive: var(--positive);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-gray: var(--gray);
+}
+
+:root {
+  --radius: 0.3rem;
+  --neutral: #ffffff;
+  --background: #3d5050b3;
+  /* Fundo sólido dos FloatCards no modo decrease_gpu_usage (sem blur) */
+  --background-flat: #526866;
+  --foreground: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #1d2838;
+  --popover: #3d5050b3;
+  --popover-foreground: #ffffff;
+  --primary: #2e94f3;
+  --primary-foreground: #ffffff;
+  --secondary: #0000001a;
+  --secondary-foreground: #ffffff;
+  --muted: #ffffff33;
+  --muted-foreground: #ffffffb3;
+  --accent: #2e94f3;
+  --accent-foreground: #ffffff;
+  --positive: #76cb73;
+  --warning: #ffd230;
+  --destructive: #df5141;
+  --border: #ffffff33;
+  --input: #ffffff33;
+  --ring: #32a0fa;
+  --gray: #585858;
+}
+
+.dark {
+  --radius: 0.3rem;
+  --background: rgba(45, 45, 45, 0.7);
+  /* Fundo sólido dos FloatCards no modo decrease_gpu_usage (sem blur) */
+  --background-flat: #2d2d2d;
+  --foreground: rgb(255, 255, 255);
+  --card: rgb(255, 255, 255);
+  --card-foreground: rgb(29, 40, 56);
+  --popover: rgba(45, 45, 45, 0.7);
+  --popover-foreground: #ffffff;
+  --primary: #2457a0;
+  --primary-foreground: rgb(255, 255, 255);
+  --secondary: rgba(0, 0, 0, 0.1);
+  --secondary-foreground: rgb(255, 255, 255);
+  --muted: rgba(0, 0, 0, 0.2);
+  --muted-foreground: rgba(255, 255, 255, 0.8);
+  --accent: #2457a0;
+  --accent-foreground: rgb(255, 255, 255);
+  --positive: rgb(125, 188, 122);
+  --warning: rgb(220, 182, 45);
+  --destructive: rgb(200, 73, 59);
+  --border: rgba(0, 0, 0, 0.2);
+  --input: rgba(0, 0, 0, 0.2);
+  --ring: #32a0fa;
+}
+
+/* Eixos de tema (ortogonais):
+   1) CLARO ↔ ESCURO  → classe `.dark` no <html> (set-theme.ts / ThemeProvider).
+   2) TRANSLÚCIDO ↔ SÓLIDO → classe `.solid-theme` no <body>.
+      • Sem `.solid-theme`  = TRANSLÚCIDO (padrão): superfícies semitransparentes
+        para ficarem SOBRE o mapa (`:root` = claro, `.dark` = escuro).
+      • Com `.solid-theme`  = SÓLIDO/opaco, para páginas sem mapa (details, admin,
+        machinery, changelog): `.solid-theme` = claro, `.dark .solid-theme` = escuro. */
+.dark .solid-theme {
+  --radius: 0.3rem;
+  --neutral: #e2e8f0;
+  --background: #0f172a;
+  --background-flat: #0f172a;
+  --foreground: #e2e8f0;
+  --card: #1e293b;
+  --card-foreground: #e2e8f0;
+  --popover: #1e293b;
+  --popover-foreground: #e2e8f0;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #1e293b;
+  --secondary-foreground: #e2e8f0;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #1e293b;
+  --accent-foreground: #e2e8f0;
+  --positive: #22c55e;
+  --warning: #eab308;
+  --destructive: #ef4444;
+  --border: #334155;
+  --input: #334155;
+  --ring: #3b82f6;
+  --gray: #64748b;
+}
+
+.solid-theme {
+  --radius: 0.3rem;
+  --neutral: #1e293b;
+  --background: #ffffff;
+  --background-flat: #ffffff;
+  --foreground: #1e293b;
+  --card: #ffffff;
+  --card-foreground: #1e293b;
+  --popover: #ffffff;
+  --popover-foreground: #1e293b;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #1e293b;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #1e293b;
+  --positive: #22c55e;
+  --warning: #eab308;
+  --destructive: #ef4444;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #2563eb;
+  --gray: #94a3b8;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+
+    body {
+      @apply bg-background text-neutral;
+    }
+
+    body svg:not([class*='size-']) {
+      @apply size-4;
+    }
+  }
+
+  input[type='number'].appearance-none::-webkit-inner-spin-button,
+  input[type='number'].appearance-none::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+* {
+  outline-offset: -2px;
+}
+
+body {
+  /* Backdrop da aplicação por baixo de tudo (mapa, cards translúcidos,
+     overlays), no lugar do teal translúcido de `bg-background`. Este valor é
+     só o fallback pré-JS; em runtime o `MapThemeBackdrop` sobrescreve o
+     `background-color` inline conforme o TEMA DO MAPA (t2s:map_theme).
+     Regra não-layered → vence o `@apply bg-background` do @layer base. */
+  background-color: #6bc8eb;
+  -webkit-user-select: none;
+  -moz-user-select: -moz-none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+html {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+}
+
+.mapboxgl-ctrl-bottom-left {
+  display: none;
+}
+
+/* Custom Scrollbar Styles */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(155, 155, 155, 0.5) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(155, 155, 155, 0.5);
+  border-radius: 4px;
+  border: 2px solid transparent;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(155, 155, 155, 0.7);
+}
+
+.dark *::-webkit-scrollbar-thumb {
+  background-color: rgba(155, 155, 155, 0.4);
+}
+
+.dark *::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(155, 155, 155, 0.6);
+}
+
+/* Barra de rolagem PERSISTENTE — some só quando não há o que rolar.
+ *
+ * O padrão global acima usa `scrollbar-width`/`scrollbar-color`, e no Chromium
+ * essas propriedades DESLIGAM os pseudo-elementos `::-webkit-scrollbar`: a
+ * barra volta a ser a overlay do sistema, que no macOS aparece durante o
+ * scroll e desaparece depois. Zerar as duas devolve o controle ao
+ * `::-webkit-scrollbar` já estilizado, que o Chromium desenha como barra
+ * clássica, visível enquanto o conteúdo transbordar.
+ *
+ * `scrollbar-gutter: stable` reserva a calha desde o começo, então o conteúdo
+ * não pula de largura quando a barra entra e sai. */
+.scrollbar-visible {
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+  scrollbar-gutter: stable;
+}
+
+/* Esconde a barra por completo (scroll continua funcional — arrasto,
+ * trackpad, roda do mouse). Classe dedicada em vez de uma classe arbitrária
+ * do Tailwind ([scrollbar-width:none] etc.) porque o seletor global `*`
+ * acima já define scrollbar-width/::-webkit-scrollbar em TODO elemento —
+ * uma classe arbitrária de mesma especificidade perde de acordo com a ordem
+ * de aparição no CSS final, não pelo peso da regra. */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Polegar da barra em BRANCO translúcido (20%; 30% no hover), para superfícies
+ * escuras/vidro como os widgets de KPI. Só o pseudo-elemento webkit: mexer em
+ * `scrollbar-color` desligaria o `::-webkit-scrollbar` no Chromium (ver acima).
+ * Fica DEPOIS das regras de tema do polegar para vencê-las (mesma
+ * especificidade, ordem decide). */
+.scrollbar-white::-webkit-scrollbar-thumb {
+  background-color: rgb(255 255 255 / 0.2);
+}
+
+.scrollbar-white::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(255 255 255 / 0.3);
+}
+
+/* Barra mais FINA que a global (8px): calha de 5px e polegar com borda de 1px
+ * (3px visíveis), para caixas compactas como os widgets de KPI. */
+.scrollbar-slim::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.scrollbar-slim::-webkit-scrollbar-thumb {
+  border-width: 1px;
+  border-radius: 3px;
+}
+
+/* Toasts no VTS: com o módulo montado (body[data-sonner-below-widgets], setado
+ * pelo módulo), a lista do topo CENTRAL do sonner desce para abaixo da
+ * fileira de widgets do header (row absolute p-2 + FloatCards h-10 ≈ 48px).
+ * A do topo à DIREITA fica no offset padrão (não desce). Fora do VTS, offset
+ * padrão do Toaster. */
+body[data-sonner-below-widgets]
+  [data-sonner-toaster][data-y-position='top'][data-x-position='center'] {
+  top: 3.5rem;
+}
+
+/* Cursor global durante arrasto/resize (useDragCursor seta body[data-drag-cursor]).
+ * `!important` para vencer o `style.cursor` inline que o deck.gl escreve no
+ * canvas do mapa a cada frame — sem isso o cursor alterna ao passar sobre o mapa. */
+body[data-drag-cursor='grabbing'],
+body[data-drag-cursor='grabbing'] * {
+  cursor: grabbing !important;
+}
+
+body[data-drag-cursor='col-resize'],
+body[data-drag-cursor='col-resize'] * {
+  cursor: col-resize !important;
+}
+
+body[data-drag-cursor='ew-resize'],
+body[data-drag-cursor='ew-resize'] * {
+  cursor: ew-resize !important;
+}
+
+body[data-drag-cursor='row-resize'],
+body[data-drag-cursor='row-resize'] * {
+  cursor: row-resize !important;
+}

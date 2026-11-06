@@ -10,3 +10,4 @@ Atualizacao - Comparacao entre periodos.pdf
 
 # builds e instaladores
 dist/
+__pycache__/

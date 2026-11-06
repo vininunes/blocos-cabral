@@ -3,7 +3,7 @@
   "productName": "Relatorio Blocos Cabral",
   "author": "Vinicius Nunes Cabral de Souza <viniciusnunes1709@gmail.com>",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.1.0-beta.1",
   "type": "module",
   "description": "Relatório de Operações da Blocos Cabral (exports do Bling → painel, PowerPoint e Excel).",
   "main": "dist-electron/main.mjs",

@@ -1,5 +1,5 @@
 /**
- * Planilhas (port de app/planilha.py): Excel do relatório e a base exportada em .xlsx
+ * Planilhas: Excel do relatório e a base exportada em .xlsx
  * (a base do app fica em JSON; o .xlsx é a cópia para abrir no Excel).
  */
 import ExcelJS from 'exceljs'

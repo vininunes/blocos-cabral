@@ -1,5 +1,5 @@
 /**
- * PowerPoint do relatório com a identidade da Blocos Cabral (port de app/ppt.py).
+ * PowerPoint do relatório com a identidade da Blocos Cabral.
  * Gráficos nativos do PowerPoint (editáveis); valores em R$ aparecem em milhares nos gráficos.
  * Coordenadas em pontos (slide 960 x 540, 16:9), convertidas para polegadas no pptxgenjs.
  */

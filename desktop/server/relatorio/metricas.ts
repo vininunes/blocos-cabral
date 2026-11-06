@@ -1,7 +1,7 @@
 /**
  * Indicadores, rankings e listas do relatório para um período e um filtro de status.
- * Port de app/metricas.py. Tabelas saem no formato { colunas, linhas } com os mesmos nomes
- * de coluna do Python (são os títulos mostrados no painel, no Excel e no PPT).
+ * Tabelas saem no formato { colunas, linhas }; os nomes de coluna são os títulos mostrados
+ * na tela, no Excel e no PPT.
  */
 import type { Base } from './base'
 import * as C from './config'

@@ -1,5 +1,5 @@
 /**
- * Formato de cada coluna pelo nome — mesma regra do painel Streamlit (_estilo):
+ * Formato de cada coluna pelo nome:
  * valores em R$, quantidades, percentuais, datas e Diferença/Variação com sinal.
  */
 import type { Celula } from '@server/relatorio/api-tipos'

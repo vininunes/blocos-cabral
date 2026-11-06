@@ -1,6 +1,5 @@
 /**
- * Serviço do relatório: mantém a base carregada e monta as respostas da API
- * (o que o painel Streamlit calculava a cada interação).
+ * Serviço do relatório: mantém a base carregada e monta as respostas da API.
  */
 import fs from 'node:fs'
 import path from 'node:path'

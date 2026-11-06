@@ -2,8 +2,8 @@
 
 App instalável (Electron) do Relatório de Operações da Blocos Cabral: React + design system
 próprio (`vendor/design-system`), arquitetura de features/modules, gráficos com Observable
-Plot, API local em Node e instaladores para macOS e Windows. Substitui o painel Streamlit (`../painel.py`),
-que fica como referência dos testes de paridade (`scripts/gerar-golden.py`).
+Plot, API local em Node e instaladores para macOS e Windows. Substitui o antigo painel em
+Python/Streamlit, que foi removido do repositório.
 
 ## Uso
 
@@ -59,27 +59,22 @@ yarn typecheck && yarn lint && yarn test
 
 ### Motor do relatório e testes
 
-`server/relatorio/` é o port em TypeScript de `../app` (leitores, base, períodos, métricas).
+`server/relatorio/` é o motor do relatório (leitores, base, períodos, métricas).
 A base fica em `dados/base.json`. Os testes conferem os números de duas formas:
 
-- `tests/relatorio.test.ts`: os testes de `../tests/test_relatorio.py`, com os valores
-  conferidos com o Bling (exports reais de outubro/2026 em `../entrada`).
+- `tests/relatorio.test.ts`: valores conferidos com o Bling (exports reais de outubro/2026 em `../entrada`).
 - `tests/exportacao.test.ts`: PowerPoint, Excel e base exportada (todos os status, sem
   dados de B, sem comparação).
 - `tests/banco.test.ts`: tabela Clientes, curva ABC, grupo econômico, CSV de contatos e
   desfazer importação (a base fica igual à de nunca ter importado o arquivo).
-- `tests/migracao.test.ts`: `tests/golden/base1-legado.xlsx` (gravada pelo app Python, com
+- `tests/migracao.test.ts`: `tests/golden/base1-legado.xlsx` (base do app antigo, com
   feedback) migrada igual, campo a campo.
-- `tests/paridade.test.ts`: compara com o gabarito gerado pelo motor Python
-  (`tests/golden/*.json`): as tabelas da base e 192 relatórios (7 períodos × 4 modos de
-  comparação × 6 status, mais a base com todos os exports). Para regenerar depois de mudar
-  uma regra no Python: `../.venv/bin/python scripts/gerar-golden.py`.
+- `tests/paridade.test.ts`: compara com um gabarito congelado (`tests/golden/*.json`): as
+  tabelas da base e 192 relatórios (7 períodos × 4 modos de comparação × 6 status, mais a
+  base com todos os exports). Se uma regra mudar de propósito, o gabarito precisa ser
+  atualizado junto.
 
-Empates em rankings saem em ordem arbitrária no pandas; no TS, o desempate é pelo nome.
-
-Diferenças intencionais em relação ao painel Python: o período abre no último dia coberto por
-todas as fontes (não na data mais recente de pedidos); em "Cancelado", alta nas altas e quedas
-é vermelha; no Excel, contagens com `#,##0` e valores sempre em R$.
+Empates em rankings são desempatados pelo nome.
 
 PowerPoint (`server/relatorio/ppt.ts`, pptxgenjs): o arquivo gerado passa por `ajustarPacote`
 — a planilha embutida de cada gráfico é refeita com o exceljs (o Keynote descarta o gráfico
@@ -94,7 +89,7 @@ Design system: os componentes ficam em `vendor/design-system` e são importados 
 ## Instaladores
 
 ```bash
-yarn dist:mac       # release/Relatorio Blocos Cabral-<versão>-arm64.dmg (Apple Silicon) e -<versão>.dmg (Intel)
+yarn dist:mac       # release/Relatorio Blocos Cabral-<versão>-arm64.dmg (Apple Silicon)
 yarn dist:win       # release/Relatorio Blocos Cabral Setup <versão>.exe (gerado no Mac, sem wine)
 yarn pack           # só o app descompactado, para testar
 ```

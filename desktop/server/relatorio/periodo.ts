@@ -1,7 +1,6 @@
 /**
  * Períodos do relatório: Dia, Semana (seg-dom), Mês, Trimestre, Semestre, Ano e Personalizado,
  * e o período de comparação (anterior, até a mesma data, ano anterior ou personalizado).
- * Port de app/periodo.py.
  */
 import {
   addDias,

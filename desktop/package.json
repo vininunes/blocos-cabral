@@ -16,7 +16,7 @@
     "start": "yarn build:web && yarn build:electron && electron .",
     "pack": "yarn build:web && yarn build:electron && electron-builder --dir",
     "dist": "yarn build:web && yarn build:electron && electron-builder",
-    "dist:mac": "yarn build:web && yarn build:electron && electron-builder --mac --arm64 --x64",
+    "dist:mac": "yarn build:web && yarn build:electron && electron-builder --mac --arm64",
     "dist:win": "yarn build:web && yarn build:electron && electron-builder --win --x64",
     "typecheck": "node scripts/check-vendor.mjs && tsc -b",
     "test": "vitest run",

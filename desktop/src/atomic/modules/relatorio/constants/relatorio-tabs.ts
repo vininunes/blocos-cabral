@@ -11,7 +11,7 @@ import {
   UserRound,
 } from 'lucide-react'
 
-/** Abas do relatório: os indicadores (cartões) primeiro, depois as do painel Streamlit. */
+/** Abas do relatório: os indicadores (cartões) primeiro, depois as demais. */
 export const RELATORIO_TABS = [
   { value: 'indicadores', icon: Gauge },
   { value: 'visao-geral', icon: LayoutDashboard },

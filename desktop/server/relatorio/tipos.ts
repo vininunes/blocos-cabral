@@ -1,4 +1,4 @@
-/** Registros da base (mesmas colunas de app/base.py → COLS). Datas em texto (ver datas.ts). */
+/** Registros da base. Datas em texto (ver datas.ts). */
 import type { Data, DataHora, Dia } from './datas'
 
 export type Proposta = {

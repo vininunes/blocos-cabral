@@ -5,6 +5,6 @@ release
 .tmp
 # design system (cópia em vendor/design-system): não reformatar
 vendor
-# gabarito gerado pelo Python (scripts/gerar-golden.py)
+# gabarito congelado dos testes (dados reais, fora do git)
 tests/golden
 server/relatorio/logo.ts

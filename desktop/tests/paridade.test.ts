@@ -1,6 +1,6 @@
 /**
- * Paridade com o motor Python: tests/golden/*.json é gerado por scripts/gerar-golden.py
- * a partir de ../app (o painel Streamlit). Mesma base, mesmos cenários, mesmos números.
+ * Regressão dos números: tests/golden/*.json é um gabarito congelado (conferido com o Bling)
+ * com a base e os relatórios esperados. Mesma base, mesmos cenários, mesmos números.
  */
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
@@ -143,7 +143,7 @@ function conferirCenario(b: Base, c: Cenario) {
   expect(erros, `${c.tipo} ${c.ancora} · ${c.modo} · ${c.filtro}`).toEqual([])
 }
 
-describe.each(['base1.json', 'base2.json'])('paridade com o Python (%s)', (arquivo) => {
+describe.each(['base1.json', 'base2.json'])('gabarito (%s)', (arquivo) => {
   const g = golden(arquivo)
   const pronto = baseCom(g.arquivos)
 

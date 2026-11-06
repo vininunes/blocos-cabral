@@ -1,6 +1,6 @@
 // Testes do motor do relatório (server/relatorio), em Node.
 //
-// A maior parte usa os exports reais do Bling (../entrada) e o gabarito gerado pelo app Python
+// A maior parte usa os exports reais do Bling (../entrada) e o gabarito congelado
 // (tests/golden). Esses arquivos têm dados de clientes e não vão para o repositório: sem eles,
 // os testes que dependem deles são pulados e rodam só os que não precisam de dados.
 import { defineConfig } from 'vitest/config'

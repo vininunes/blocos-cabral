@@ -1,4 +1,4 @@
-/** Conversões de texto, números e datas no padrão brasileiro (port de app/utils.py). */
+/** Conversões de texto, números e datas no padrão brasileiro. */
 import { criar, deMs, formatar, ms, type Data } from './datas'
 
 const MN = /\p{Mn}/gu

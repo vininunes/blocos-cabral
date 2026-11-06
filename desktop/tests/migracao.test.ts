@@ -1,4 +1,4 @@
-/** Migração da base do app antigo: tests/golden/base1-legado.xlsx foi gravada pelo app Python. */
+/** Migração da base do app antigo: tests/golden/base1-legado.xlsx é uma base.xlsx do app antigo, com feedback. */
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'

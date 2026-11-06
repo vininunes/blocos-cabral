@@ -1,4 +1,4 @@
-/** Status do fluxo, mapa de situações do Bling e listas fixas (port de app/config.py). */
+/** Status do fluxo, mapa de situações do Bling e listas fixas. */
 
 // cores do logo (sem #, como no PPT/Excel)
 export const AZUL = '232F66'

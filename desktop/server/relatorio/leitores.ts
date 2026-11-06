@@ -1,5 +1,5 @@
 /**
- * Leitura dos arquivos exportados do Bling (port de app/leitores.py).
+ * Leitura dos arquivos exportados do Bling.
  *
  * - vendas_*.csv      -> itens de pedidos Atendidos (entregues)
  * - orcamentos_*.csv  -> propostas comerciais (processo de venda) e seus itens

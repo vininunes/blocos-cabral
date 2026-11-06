@@ -1,6 +1,6 @@
 /**
  * Base histórica (dados/base.json): propostas, pedidos, itens, notas e arquivos importados.
- * Port de app/base.py — mesmas regras, guardado em JSON em vez de base.xlsx.
+ * Base do relatório, guardada em JSON (dados/base.json).
  *
  * Regras do fluxo:
  *   Processo de venda -> Aprovado -> Entregue (pedido Atendido) -> Faturado (nota emitida)

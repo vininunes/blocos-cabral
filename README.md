@@ -17,7 +17,7 @@ Baixe o instalador na página de [Releases](https://github.com/vininunes/blocos-
 | macOS (Apple Silicon) | `Relatorio-Blocos-Cabral-<versão>-mac-apple-silicon.dmg` |
 
 Sem assinatura de código: no Windows, o SmartScreen pede **Mais informações → Executar assim
-mesmo**; no macOS, no primeiro uso, botão direito no app → **Abrir**.
+mesmo**; no macOS, no primeiro uso, **Ajustes do Sistema → Privacidade e Segurança → Abrir Mesmo Assim**.
 
 ## Arquivos do Bling
 | Arquivo | Onde exportar | Nome |

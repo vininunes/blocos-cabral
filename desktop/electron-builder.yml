@@ -13,6 +13,9 @@ files:
   - package.json
 mac:
   category: public.app-category.business
+  # sem certificado da Apple: assinatura ad-hoc do pacote inteiro (sem ela o macOS diz que o app está "danificado")
+  identity: "-"
+  hardenedRuntime: false
   icon: build/icon.png
   target:
     - dmg

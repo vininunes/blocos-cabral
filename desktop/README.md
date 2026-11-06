@@ -89,16 +89,21 @@ Design system: os componentes ficam em `vendor/design-system` e são importados 
 ## Instaladores
 
 ```bash
-yarn dist:mac       # release/Relatorio Blocos Cabral-<versão>-arm64.dmg (Apple Silicon)
-yarn dist:win       # release/Relatorio Blocos Cabral Setup <versão>.exe (gerado no Mac, sem wine)
+yarn dist:mac       # Relatorio Blocos Cabral-<versão>-arm64.dmg (Apple Silicon)
+yarn dist:win       # Relatorio Blocos Cabral Setup <versão>.exe (gerado no Mac, sem wine)
 yarn pack           # só o app descompactado, para testar
 ```
 
+- Os instaladores saem em `~/Library/Caches/relatorio-blocos-cabral/release`, fora do projeto:
+  dentro de uma pasta sincronizada pelo iCloud (como o Desktop), o `codesign` falha com
+  "resource fork, Finder information, or similar detritus not allowed".
 - Dados do app instalado: `Documentos/Relatorio Blocos Cabral/` (`entrada/`, `dados/`, `saida/`);
   o menu **Dados** abre as pastas. Atualizar o app (instalar uma versão nova por cima) não
   mexe nos dados. Para mudar a versão: `version` no `package.json`.
-- Sem assinatura de código: no macOS, primeiro uso com botão direito → Abrir; no Windows, o
-  SmartScreen pede "Mais informações → Executar assim mesmo".
+- Sem certificado: o app do Mac recebe assinatura ad-hoc (`identity: "-"`). Sem ela, o macOS
+  diz que o app está "danificado". No primeiro uso, é preciso ir em Ajustes do Sistema →
+  Privacidade e Segurança → Abrir Mesmo Assim. O `.exe` sai sem assinatura, e o SmartScreen
+  pede "Mais informações → Executar assim mesmo".
 - `toolsets.nsis: 1.2.1` no `electron-builder.yml` é necessário para gerar o `.exe` num Mac
   Apple Silicon (o makensis legado só existe em x86).
 
@@ -108,5 +113,5 @@ Teste sem interação (sobe o app, consulta a API e encerra):
 # RELATORIO_SMOKE_IMPORT=1 também importa a pasta entrada/ e gera PPT, Excel e base
 # (feche o app aberto antes: só roda uma instância por vez)
 RELATORIO_SMOKE_TEST=1 RELATORIO_SMOKE_SHOT=/tmp/tela.png RELATORIO_DATA_DIR=/tmp/dados \
-  "release/mac-arm64/Relatorio Blocos Cabral.app/Contents/MacOS/Relatorio Blocos Cabral"
+  "$HOME/Library/Caches/relatorio-blocos-cabral/release/mac-arm64/Relatorio Blocos Cabral.app/Contents/MacOS/Relatorio Blocos Cabral"
 ```

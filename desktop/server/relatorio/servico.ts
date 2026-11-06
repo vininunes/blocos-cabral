@@ -20,12 +20,14 @@ import type {
   PedidoProvisoes,
   PropostaFeedback,
   RespostaRelatorio,
+  RespostaVerificacao,
   TabelaBanco,
 } from './api-tipos'
 import { Base, guardarEmEntrada } from './base'
 import { indicadoresClientes } from './clientes'
 import * as C from './config'
 import { agora, dia, type Dia } from './datas'
+import { detectarTipo } from './leitores'
 import { DIMENSOES, Relatorio, TODOS, type Dimensao, type Tabela } from './metricas'
 import { migrarBaseAntiga, type ResultadoMigracao } from './migracao'
 import { comparacao, Periodo } from './periodo'
@@ -261,8 +263,13 @@ export function criarServico(
     return resumo
   }
 
-  function importadoComo(conteudoBase64: string) {
-    return base.importadoComo(new Uint8Array(Buffer.from(conteudoBase64, 'base64')))
+  /** Antes de importar: tipo identificado pelo conteúdo e se já foi importado (com que nome). */
+  function verificarArquivo(nome: string, conteudoBase64: string): RespostaVerificacao {
+    const conteudo = new Uint8Array(Buffer.from(conteudoBase64, 'base64'))
+    return {
+      tipo: detectarTipo(nome, conteudo) || null,
+      importadoComo: base.importadoComo(conteudo),
+    }
   }
 
   function salvarFeedback(pedido: PedidoFeedback) {
@@ -372,7 +379,7 @@ export function criarServico(
     relatorio,
     importar,
     importarPasta,
-    importadoComo,
+    verificarArquivo,
     salvarFeedback,
     exportar,
     exportarBase: exportarBaseXlsx,

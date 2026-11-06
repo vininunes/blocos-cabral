@@ -38,6 +38,35 @@ export function tipoArquivo(nome: string): TipoArquivo | '' {
 
 type Tabela = { colunas: string[]; linhas: string[][] }
 
+/** Primeiros bytes de um PDF ("%PDF"). */
+function ehPdf(conteudo: Uint8Array) {
+  return (
+    conteudo[0] === 0x25 && conteudo[1] === 0x50 && conteudo[2] === 0x44 && conteudo[3] === 0x46
+  )
+}
+
+/**
+ * Tipo do arquivo pelo conteúdo: PDF = notas (o leitor confirma que é o relatório do Bling);
+ * CSV pelas colunas do cabeçalho (vendas: "Número pedido"; orçamentos: "Número da proposta";
+ * contatos: nome ou CNPJ/CPF). Se o conteúdo não decidir, vale o nome (tipoArquivo).
+ */
+export function detectarTipo(nome: string, conteudo: Uint8Array): TipoArquivo | '' {
+  if (ehPdf(conteudo)) return 'notas'
+  const texto = decodificar(conteudo.subarray(0, 64 * 1024))
+  const primeira = texto.split(/\r?\n/, 1)[0] ?? ''
+  if (primeira.trim()) {
+    const conta = (c: string) => primeira.split(c).length - 1
+    const colunas = new Set(
+      (lerCsv(primeira, conta(';') >= conta(',') ? ';' : ',').colunas ?? []).map((c) => norm(c))
+    )
+    if (colunas.has('numero pedido')) return 'vendas'
+    if (colunas.has('numero da proposta')) return 'orcamentos'
+    const contato = [...COLUNAS_CONTATOS.nome, ...COLUNAS_CONTATOS.cnpj]
+    if (contato.some((c) => colunas.has(c))) return 'contatos'
+  }
+  return tipoArquivo(nome)
+}
+
 function decodificar(conteudo: Uint8Array) {
   // utf-8-sig com errors="replace": o TextDecoder já tira o BOM e troca bytes inválidos
   return new TextDecoder('utf-8').decode(conteudo)

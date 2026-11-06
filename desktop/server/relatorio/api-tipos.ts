@@ -131,6 +131,9 @@ export type ArquivoParaImportar = {
 }
 export type PedidoImportacao = { arquivos: ArquivoParaImportar[] }
 
+/** POST /api/importacao/verificar: tipo pelo conteúdo (null = não reconhecido) e importação anterior. */
+export type RespostaVerificacao = { tipo: TipoArquivo | null; importadoComo: string | null }
+
 /** PUT /api/feedback */
 export type EdicaoFeedback = Partial<
   Pick<PropostaFeedback, 'dt_aprovacao' | 'dt_cancelamento' | 'pedido' | 'motivo' | 'comentario'>

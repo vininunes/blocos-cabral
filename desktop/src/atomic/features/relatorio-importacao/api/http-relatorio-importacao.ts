@@ -1,5 +1,9 @@
 import { relatorioApiInstance } from '@/services/relatorio-api-instance'
-import type { PedidoImportacao, RespostaImportacao } from '@server/relatorio/api-tipos'
+import type {
+  PedidoImportacao,
+  RespostaImportacao,
+  RespostaVerificacao,
+} from '@server/relatorio/api-tipos'
 
 export async function importarArquivos(pedido: PedidoImportacao) {
   const response = await relatorioApiInstance.post<RespostaImportacao>('/importacao', pedido)
@@ -11,10 +15,11 @@ export async function importarPasta() {
   return response.data
 }
 
-export async function verificarArquivo(conteudo: string) {
-  const response = await relatorioApiInstance.post<{ importadoComo: string | null }>(
-    '/importacao/verificar',
-    { conteudo }
-  )
-  return response.data.importadoComo
+/** Tipo identificado pelo conteúdo e se o arquivo já foi importado antes. */
+export async function verificarArquivo(nome: string, conteudo: string) {
+  const response = await relatorioApiInstance.post<RespostaVerificacao>('/importacao/verificar', {
+    nome,
+    conteudo,
+  })
+  return response.data
 }

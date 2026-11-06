@@ -151,6 +151,47 @@ describe('tabela Clientes', () => {
   })
 })
 
+describe('importação em lote (exports reais)', () => {
+  const TODOS = [
+    'vendas_2026-10-17-14-39-51.csv',
+    'vendas_2026-10-23-11-49-30.csv',
+    'orcamentos_2026-10-17-14-33-27.csv',
+    'orcamentos_2026-10-23-11-46-03.csv',
+    'notas_2026-10-17-16-41-00.pdf',
+  ]
+
+  // dentro do mesmo tipo vale a ordem do nome (o último sobrescreve pedidos repetidos); os nomes
+  // novos mantêm essa ordem, mas o lote chega embaralhado
+  it('arquivos renomeados e misturados dão a mesma base', async () => {
+    const { b: esperado } = await baseCom(TODOS)
+    const renomeados = arquivos(TODOS)
+      .map((a, i) => ({ ...a, nome: `arquivo ${i}${a.nome.slice(a.nome.lastIndexOf('.'))}` }))
+      .reverse()
+    const b = new Base()
+    const r = await b.importar(renomeados)
+    expect(r.erros).toEqual([])
+    expect(r.importados).toHaveLength(TODOS.length)
+    expect(b.t.arquivos.map((a) => a.tipo).sort()).toEqual(
+      ['notas', 'orcamentos', 'orcamentos', 'vendas', 'vendas'].sort()
+    )
+    // iguais, tirando o nome do arquivo de origem gravado em cada linha
+    const sem = <T extends object>(xs: T[]) =>
+      JSON.stringify(xs.map((x) => ({ ...x, arquivo: undefined, arquivo_origem: undefined })))
+    expect(b.propostas.length).toBe(esperado.propostas.length)
+    expect(sem(b.pedidos)).toBe(sem(esperado.pedidos))
+    expect(sem(b.notas)).toBe(sem(esperado.notas))
+    expect(sem(b.itensPropostas)).toBe(sem(esperado.itensPropostas))
+  })
+
+  it('o mesmo arquivo duas vezes no lote: o segundo é ignorado', async () => {
+    const [a] = arquivos(['vendas_2026-10-17-14-39-51.csv'])
+    const r = await new Base().importar([a, { ...a, nome: 'copia.csv' }])
+    expect(r.importados).toHaveLength(1)
+    expect(r.ignorados).toHaveLength(1)
+    expect(r.ignorados[0]).toContain('mesmo conteúdo de')
+  })
+})
+
 describe('desfazer importação', () => {
   async function baseComEntrada(nomes: string[]) {
     const pasta = fs.mkdtempSync(path.join(os.tmpdir(), 'entrada-'))

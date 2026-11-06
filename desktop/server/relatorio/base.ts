@@ -18,7 +18,7 @@ import path from 'node:path'
 
 import * as C from './config'
 import { addDias, agora, dia, difDias, difDiasAbs, type Data, type Dia } from './datas'
-import { lerContatos, lerNotasPdf, lerOrcamentos, lerVendas, tipoArquivo } from './leitores'
+import { detectarTipo, lerContatos, lerNotasPdf, lerOrcamentos, lerVendas } from './leitores'
 import type {
   ArquivoImportado,
   Cliente,
@@ -185,7 +185,8 @@ export class Base {
   }
 
   /**
-   * Importa vendas, depois orçamentos, depois notas (sem tipo, ele é deduzido do nome) e liga tudo.
+   * Importa vendas, depois orçamentos, depois notas (sem tipo, ele é deduzido do conteúdo, ou
+   * do nome se o conteúdo não decidir) e liga tudo.
    * Conteúdo já importado é ignorado, a menos que `forcar`.
    */
   async importar(arquivos: ArquivoEntrada[], forcar = false): Promise<ResumoImportacao> {
@@ -199,14 +200,14 @@ export class Base {
     const vistos = this.hashes()
     const ordem: Record<string, number> = { vendas: 0, orcamentos: 1, notas: 2, contatos: 3 }
     const fila = ordenar(
-      arquivos.map((a) => ({ ...a, tipo: a.tipo || tipoArquivo(a.nome) })),
+      arquivos.map((a) => ({ ...a, tipo: a.tipo || detectarTipo(a.nome, a.conteudo) })),
       (a) => ordem[a.tipo] ?? 9,
       (a) => a.nome
     )
     for (const { nome, conteudo, tipo } of fila) {
       if (!tipo) {
         resumo.erros.push(
-          `${nome}: tipo não reconhecido (use vendas_*.csv, orcamentos_*.csv, contatos_*.csv ou o PDF de notas)`
+          `${nome}: tipo não reconhecido (não parece um export de orçamentos, vendas ou contatos do Bling, nem o PDF de notas)`
         )
         continue
       }
@@ -243,12 +244,13 @@ export class Base {
     return resumo
   }
 
-  /** Importa os arquivos reconhecidos de uma pasta (ex.: entrada/). */
+  /** Importa os CSV e PDF de uma pasta (ex.: entrada/); o tipo de cada um vem do conteúdo. */
   async importarPasta(pasta: string, forcar = false) {
     const nomes = fs
       .readdirSync(pasta)
       .filter(
-        (n) => !n.startsWith('.') && tipoArquivo(n) && fs.statSync(path.join(pasta, n)).isFile()
+        (n) =>
+          !n.startsWith('.') && /\.(csv|pdf)$/i.test(n) && fs.statSync(path.join(pasta, n)).isFile()
       )
       .sort()
     return this.importar(

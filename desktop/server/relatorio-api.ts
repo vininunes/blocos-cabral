@@ -6,7 +6,7 @@
 //   POST /api/relatorio             relatório do período/comparação/status (ConsultaRelatorio)
 //   POST /api/importacao            importa arquivos enviados (base64) e grava cópia em entrada/
 //   POST /api/importacao/pasta      importa os arquivos novos de entrada/
-//   POST /api/importacao/verificar  { conteudo } -> nome com que já foi importado (ou null)
+//   POST /api/importacao/verificar  { nome, conteudo } -> tipo identificado e nome com que já foi importado
 //   PUT  /api/feedback              grava motivo/comentário/datas/pedido editados
 //   POST /api/exportar/ppt|excel    gera o PowerPoint/Excel do relatório em saida/ (ConsultaRelatorio)
 //   POST /api/exportar/base         exporta a base inteira em .xlsx para saida/
@@ -114,8 +114,8 @@ export function createRelatorioApi(options: RelatorioApiOptions) {
       case 'POST /api/importacao/pasta':
         return sendJson(res, 200, await exclusivo('Importação', () => servico.importarPasta()))
       case 'POST /api/importacao/verificar': {
-        const { conteudo } = await json<{ conteudo: string }>(req)
-        return sendJson(res, 200, { importadoComo: servico.importadoComo(conteudo) })
+        const { nome, conteudo } = await json<{ nome: string; conteudo: string }>(req)
+        return sendJson(res, 200, servico.verificarArquivo(nome ?? '', conteudo))
       }
       case 'PUT /api/feedback': {
         const pedido = await json<PedidoFeedback>(req)

@@ -1,7 +1,17 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import type { RespostaImportacao, TipoArquivo } from '@server/relatorio/api-tipos'
-import { CircleAlert, CircleCheck, FileUp, FolderInput, Info, Upload, X } from 'lucide-react'
+import {
+  CircleAlert,
+  CircleCheck,
+  FileUp,
+  FolderInput,
+  Info,
+  LoaderCircle,
+  TriangleAlert,
+  Upload,
+  X,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/atomic/base-components/button'
@@ -18,18 +28,51 @@ import Tooltip from '@/atomic/base-components/tooltip'
 
 import { Dropzone } from '@/atomic/components/dropzone'
 
+import { cn } from '@/lib/tailwind/utils'
+
 import { verificarArquivo } from '../api/http-relatorio-importacao'
 import { arquivoBase64 } from '../helpers/base64'
 import { useImportarMutation } from '../hooks/queries/use-relatorio-importacao-queries'
 
-const ARQUIVOS: { tipo: TipoArquivo; formatos: string[] }[] = [
-  { tipo: 'orcamentos', formatos: ['.csv'] },
-  { tipo: 'vendas', formatos: ['.csv'] },
-  { tipo: 'notas', formatos: ['.pdf'] },
-  { tipo: 'contatos', formatos: ['.csv'] },
-]
+const FORMATOS: Record<TipoArquivo, string> = {
+  orcamentos: '.csv',
+  vendas: '.csv',
+  notas: '.pdf',
+  contatos: '.csv',
+}
+const TODOS: TipoArquivo[] = ['orcamentos', 'vendas', 'notas', 'contatos']
 
-type Escolhido = { nome: string; conteudo: string; importadoComo: string | null }
+/** Um arquivo escolhido, com o que a API identificou antes de importar. */
+type Escolhido = {
+  id: number
+  nome: string
+  conteudo: string | null
+  verificando: boolean
+  tipo: TipoArquivo | null
+  importadoComo: string | null
+  falhou: boolean
+}
+
+type Situacao =
+  | { vai: true }
+  | { vai: false; aviso: 'verificando' | 'falha' | 'naoReconhecido' | 'outroTipo' | 'jaImportado' }
+  | { vai: false; aviso: 'repetido'; de: string }
+
+/** Se o arquivo vai ser importado ou, se não, por quê. */
+function situacoes(lista: Escolhido[], tipos: TipoArquivo[]): Situacao[] {
+  const vistos = new Map<string, string>()
+  return lista.map((e) => {
+    if (e.verificando) return { vai: false, aviso: 'verificando' }
+    if (e.falhou || e.conteudo === null) return { vai: false, aviso: 'falha' }
+    if (!e.tipo) return { vai: false, aviso: 'naoReconhecido' }
+    if (!tipos.includes(e.tipo)) return { vai: false, aviso: 'outroTipo' }
+    if (e.importadoComo) return { vai: false, aviso: 'jaImportado' }
+    const igual = vistos.get(e.conteudo)
+    if (igual) return { vai: false, aviso: 'repetido', de: igual }
+    vistos.set(e.conteudo, e.nome)
+    return { vai: true }
+  })
+}
 
 function Resultado({ r }: { r: RespostaImportacao }) {
   const { t } = useTranslation()
@@ -84,13 +127,66 @@ function Resultado({ r }: { r: RespostaImportacao }) {
   )
 }
 
+/** Linha da lista de escolhidos: nome, tipo identificado, aviso e remover. */
+function LinhaArquivo({ e, s, remover }: { e: Escolhido; s: Situacao; remover: () => void }) {
+  const { t } = useTranslation()
+  const tipoCurto = (tipo: TipoArquivo) => t(`relatorioImportacao.tipoCurto.${tipo}`)
+  let aviso: string | null = null
+  if (!s.vai) {
+    if (s.aviso === 'verificando') aviso = t('relatorioImportacao.verificando')
+    else if (s.aviso === 'falha') aviso = t('relatorioImportacao.falhaLeitura')
+    else if (s.aviso === 'naoReconhecido') aviso = t('relatorioImportacao.naoReconhecido')
+    else if (s.aviso === 'outroTipo')
+      aviso = t('relatorioImportacao.outroTipo', { tipo: tipoCurto(e.tipo!).toLowerCase() })
+    else if (s.aviso === 'jaImportado')
+      aviso = t('relatorioImportacao.jaImportado', { nome: e.importadoComo })
+    else if (s.aviso === 'repetido')
+      aviso = t('relatorioImportacao.repetidoSelecao', { nome: s.de })
+  }
+  const alerta = !s.vai && s.aviso !== 'verificando'
+  return (
+    <li className="flex items-start gap-2 px-3 py-2 text-sm">
+      {s.vai || !alerta ? (
+        e.verificando ? (
+          <LoaderCircle className="mt-0.5 size-4 shrink-0 animate-spin text-muted-foreground" />
+        ) : (
+          <FileUp className="mt-0.5 size-4 shrink-0 text-primary" />
+        )
+      ) : (
+        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className={cn('truncate', alerta && 'text-muted-foreground')}>{e.nome}</span>
+          {e.tipo && (
+            <span className="shrink-0 rounded-full border px-2 py-px text-[11px] text-muted-foreground">
+              {tipoCurto(e.tipo)}
+            </span>
+          )}
+        </div>
+        {aviso && (
+          <p className={cn('text-xs', alerta ? 'text-amber-700' : 'text-muted-foreground')}>
+            {aviso}
+          </p>
+        )}
+      </div>
+      <Tooltip text={t('relatorioImportacao.remover')}>
+        <Button variant="ghost" size="icon" className="size-6 shrink-0" onClick={remover}>
+          <X className="size-4" />
+        </Button>
+      </Tooltip>
+    </li>
+  )
+}
+
 /**
- * Botão + diálogo de importação. Sem `tipos`, aceita os quatro arquivos do Bling; na tela
- * Banco de dados cada tabela abre só o seu (ex.: Notas -> PDF de notas).
+ * Botão + diálogo de importação em lote. Sem `tipos`, aceita os quatro arquivos do Bling
+ * misturados (o tipo de cada um vem do conteúdo); na tela Banco de dados cada tabela abre só o
+ * seu (ex.: Notas -> vários PDFs de notas) e avisa quando um arquivo é de outro tipo.
  */
 export function RelatorioImportacaoDialog({
   variante = 'default',
-  tipos = ['orcamentos', 'vendas', 'notas', 'contatos'],
+  tipos = TODOS,
   rotulo,
   pasta = true,
 }: {
@@ -102,23 +198,54 @@ export function RelatorioImportacaoDialog({
 }) {
   const { t } = useTranslation()
   const [aberto, setAberto] = useState(false)
-  const [escolhidos, setEscolhidos] = useState<Partial<Record<TipoArquivo, Escolhido>>>({})
+  const [lista, setLista] = useState<Escolhido[]>([])
+  const proximoId = useRef(0)
   const importar = useImportarMutation()
   const resultado = importar.data
 
-  const escolher = async (tipo: TipoArquivo, file: File) => {
-    const conteudo = await arquivoBase64(file)
-    const importadoComo = await verificarArquivo(conteudo).catch(() => null)
-    setEscolhidos((e) => ({ ...e, [tipo]: { nome: file.name, conteudo, importadoComo } }))
+  const formatos = [...new Set(tipos.map((tipo) => FORMATOS[tipo]))]
+  const sits = situacoes(lista, tipos)
+  const aImportar = lista.filter((_, i) => sits[i].vai)
+
+  const atualizar = (id: number, mudanca: Partial<Escolhido>) =>
+    setLista((l) => l.map((e) => (e.id === id ? { ...e, ...mudanca } : e)))
+
+  const adicionar = (files: File[]) => {
+    for (const file of files) {
+      const id = proximoId.current++
+      setLista((l) => [
+        ...l,
+        {
+          id,
+          nome: file.name,
+          conteudo: null,
+          verificando: true,
+          tipo: null,
+          importadoComo: null,
+          falhou: false,
+        },
+      ])
+      void (async () => {
+        try {
+          const conteudo = await arquivoBase64(file)
+          const v = await verificarArquivo(file.name, conteudo)
+          atualizar(id, { conteudo, verificando: false, ...v })
+        } catch {
+          atualizar(id, { verificando: false, falhou: true })
+        }
+      })()
+    }
   }
-  const lista = Object.entries(escolhidos) as [TipoArquivo, Escolhido][]
+
   const fechar = (v: boolean) => {
     setAberto(v)
     if (!v) {
-      setEscolhidos({})
+      setLista([])
       importar.reset()
     }
   }
+
+  const umTipo = tipos.length === 1 ? tipos[0] : null
 
   return (
     <Dialog open={aberto} onOpenChange={fechar}>
@@ -134,52 +261,59 @@ export function RelatorioImportacaoDialog({
             {resultado ? t('relatorioImportacao.resultado') : t('relatorioImportacao.titulo')}
           </DialogTitle>
           {!resultado && (
-            <DialogDescription>{t('relatorioImportacao.descricao')}</DialogDescription>
+            <DialogDescription>
+              {umTipo
+                ? t('relatorioImportacao.descricaoTipo', {
+                    tipo: t(`relatorioImportacao.tipoCurto.${umTipo}`).toLowerCase(),
+                  })
+                : t('relatorioImportacao.descricao')}
+            </DialogDescription>
           )}
         </DialogHeader>
 
         {resultado ? (
           <Resultado r={resultado} />
         ) : (
-          <div className="space-y-3">
-            {ARQUIVOS.filter((a) => tipos.includes(a.tipo)).map(({ tipo, formatos }) => {
-              const e = escolhidos[tipo]
-              return (
-                <div key={tipo} className="space-y-1">
-                  <div className="text-sm font-medium">{t(`relatorioImportacao.${tipo}`)}</div>
-                  {e ? (
-                    <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
-                      <FileUp className="size-4 shrink-0 text-primary" />
-                      <span className="flex-1 truncate">{e.nome}</span>
-                      <Tooltip text={t('relatorioImportacao.remover')}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setEscolhidos((x) => ({ ...x, [tipo]: undefined }))}
-                        >
-                          <X className="size-4" />
-                        </Button>
-                      </Tooltip>
-                    </div>
-                  ) : (
-                    <Dropzone
-                      acceptFormats={formatos}
-                      onChange={(files) => files[0] && void escolher(tipo, files[0])}
-                      className="relative h-16 w-full"
-                    >
-                      <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                        {t('relatorioImportacao.soltar')}
-                      </div>
-                    </Dropzone>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {e?.importadoComo
-                      ? `⚠️ ${t('relatorioImportacao.jaImportado', { nome: e.importadoComo })}`
-                      : t(`relatorioImportacao.${tipo}Ajuda`)}
-                  </p>
-                </div>
-              )
-            })}
+          <div className="min-w-0 space-y-3">
+            <Dropzone
+              acceptFormats={formatos}
+              onChange={adicionar}
+              className="relative h-20 w-full"
+            >
+              <div className="flex h-full flex-col items-center justify-center gap-0.5 text-xs text-muted-foreground">
+                <span>{t('relatorioImportacao.soltar')}</span>
+                <span className="text-[11px]">
+                  {t('relatorioImportacao.soltarFormatos', {
+                    formatos: formatos.map((f) => f.slice(1).toUpperCase()).join(' e '),
+                  })}
+                </span>
+              </div>
+            </Dropzone>
+
+            {lista.length > 0 && (
+              <ul className="max-h-64 divide-y overflow-y-auto rounded-md border bg-muted/30">
+                {lista.map((e, i) => (
+                  <LinhaArquivo
+                    key={e.id}
+                    e={e}
+                    s={sits[i]}
+                    remover={() => setLista((l) => l.filter((x) => x.id !== e.id))}
+                  />
+                ))}
+              </ul>
+            )}
+
+            <div className="space-y-1 text-xs text-muted-foreground">
+              <div className="font-medium text-foreground">
+                {t('relatorioImportacao.comoExportar')}
+              </div>
+              {tipos.map((tipo) => (
+                <p key={tipo}>
+                  <span className="font-medium">{t(`relatorioImportacao.tipoCurto.${tipo}`)}:</span>{' '}
+                  {t(`relatorioImportacao.${tipo}Ajuda`)}
+                </p>
+              ))}
+            </div>
             <p className="text-xs text-muted-foreground">{t('relatorioImportacao.repetidos')}</p>
           </div>
         )}
@@ -205,20 +339,22 @@ export function RelatorioImportacaoDialog({
                 {t('relatorioImportacao.cancelar')}
               </Button>
               <Button
-                disabled={!lista.length || importar.isPending}
+                disabled={!aImportar.length || importar.isPending}
                 onClick={() =>
                   importar.mutate({
-                    arquivos: lista.map(([tipo, e]) => ({
+                    arquivos: aImportar.map((e) => ({
                       nome: e.nome,
-                      tipo,
-                      conteudo: e.conteudo,
+                      tipo: e.tipo!,
+                      conteudo: e.conteudo!,
                     })),
                   })
                 }
               >
                 {importar.isPending
                   ? t('relatorioImportacao.importando')
-                  : t('relatorioImportacao.importar')}
+                  : aImportar.length
+                    ? t('relatorioImportacao.importarN', { count: aImportar.length })
+                    : t('relatorioImportacao.importar')}
               </Button>
             </>
           )}

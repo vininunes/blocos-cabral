@@ -7,6 +7,7 @@ import { Button } from '@/atomic/base-components/button'
 import { FloatCard } from '@/atomic/base-components/float-card'
 import Tooltip from '@/atomic/base-components/tooltip'
 
+import { resumoModo } from '../helpers/modos-comparacao'
 import { relatorioFiltrosAtom } from '../store/relatorio-filtros-state'
 
 /** Período selecionado em destaque, com as setas ‹ › para o anterior/próximo. */
@@ -22,7 +23,7 @@ export function RelatorioPeriodoFaixa({
   const ir = (n: Navegacao) =>
     setF((x) => ({ ...x, ancora: n.ancora, de: n.de ?? x.de, ate: n.ate ?? x.ate }))
   const sub = rel.b
-    ? t('relatorioFiltros.comparando', { b: rel.b.rotulo, modo: rel.modo.toLowerCase() })
+    ? t('relatorioFiltros.comparando', { b: rel.b.rotulo, modo: resumoModo(rel.modo) })
     : t('relatorioFiltros.semComparacao')
 
   return (

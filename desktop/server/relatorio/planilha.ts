@@ -210,6 +210,61 @@ const DATA_HORA_COLS = new Set([
   'importado_em',
 ])
 
+/** Campos em % (fração) e em quantidade inteira nas exportações por tabela. */
+const PCT = new Set(['participacao', 'participacao_acumulada', 'conversao'])
+const INTEIRO = new Set(['qtd', 'linhas', 'notas', 'propostas', 'pedidos', 'dias_sem_comprar'])
+const MOEDA_CLIENTES = new Set([
+  'faturamento',
+  'ticket_medio',
+  'potencial',
+  'provisao_mes',
+  'carteira_aberta',
+  'aguardando_nota',
+  'faturamento_90d',
+  'faturamento_90d_anterior',
+])
+
+/**
+ * Uma tabela do Banco de dados em .xlsx (o que está na tela: busca e ordenação), formatada
+ * pela chave de cada coluna: R$, %, quantidades e datas.
+ */
+export async function exportarTabela(
+  aba: string,
+  colunas: { chave: string; titulo: string }[],
+  linhas: Record<string, Celula>[]
+): Promise<Uint8Array> {
+  const wb = new ExcelJS.Workbook()
+  const ws = wb.addWorksheet(aba.slice(0, 31), { views: [{ state: 'frozen', ySplit: 1 }] })
+  ws.addRow(colunas.map((c) => c.titulo))
+  for (const l of linhas) ws.addRow(colunas.map((c) => celula(l[c.chave] ?? null)))
+  cabecalho(ws)
+  ws.getRow(1).height = 30
+  colunas.forEach(({ chave, titulo }, j) => {
+    const amostra = linhas.slice(0, 200).map((l) => String(l[chave] ?? '').length)
+    ws.getColumn(j + 1).width =
+      LARGURAS[chave] ?? Math.min(Math.max(titulo.length, ...amostra, 8) + 2, 50)
+    const fmt =
+      MOEDA.has(chave) || MOEDA_CLIENTES.has(chave)
+        ? '"R$" #,##0.00'
+        : PCT.has(chave)
+          ? '0.0%'
+          : INTEIRO.has(chave)
+            ? '#,##0'
+            : DATA_HORA_COLS.has(chave)
+              ? 'dd/mm/yyyy hh:mm'
+              : chave.startsWith('dt_') || chave === 'data' || chave === 'ultima_compra'
+                ? 'dd/mm/yyyy'
+                : null
+    if (fmt) for (let i = 2; i <= linhas.length + 1; i++) ws.getCell(i, j + 1).numFmt = fmt
+  })
+  if (linhas.length)
+    ws.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: linhas.length + 1, column: colunas.length },
+    }
+  return new Uint8Array(await wb.xlsx.writeBuffer())
+}
+
 /** A base inteira em .xlsx (abas Propostas, Pedidos, Notas, ItensPropostas, Arquivos). */
 export async function exportarBase(base: Base): Promise<Uint8Array> {
   const wb = new ExcelJS.Workbook()

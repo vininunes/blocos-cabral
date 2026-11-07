@@ -16,7 +16,7 @@ import { RelatorioFeedback } from '@/atomic/features/relatorio-feedback/componen
 import { RelatorioCoberturaAviso } from '@/atomic/features/relatorio-filtros/components/relatorio-cobertura-aviso'
 import {
   RelatorioFiltrosAcoes,
-  RelatorioFiltrosDatas,
+  RelatorioFiltroStatus,
   RelatorioTipoPeriodo,
 } from '@/atomic/features/relatorio-filtros/components/relatorio-filtros-barra'
 import { RelatorioPeriodoFaixa } from '@/atomic/features/relatorio-filtros/components/relatorio-periodo-faixa'
@@ -82,12 +82,15 @@ function Conteudo() {
           <RelatorioFiltrosAcoes periodoB={rel.b} semComparacao={baseInteira} />
         </div>
         {baseInteira ? (
-          <RelatorioPeriodoTodo rel={rel} />
+          <div className="flex flex-wrap items-stretch gap-2">
+            <RelatorioFiltroStatus />
+            <RelatorioPeriodoTodo rel={rel} />
+          </div>
         ) : (
           <>
             <div className="flex flex-wrap items-stretch gap-2">
-              <RelatorioTipoPeriodo />
-              <RelatorioFiltrosDatas />
+              <RelatorioFiltroStatus />
+              <RelatorioTipoPeriodo periodoA={rel.a} />
               <RelatorioPeriodoFaixa rel={rel} carregando={isFetching} />
             </div>
             <RelatorioCoberturaAviso rel={rel} />

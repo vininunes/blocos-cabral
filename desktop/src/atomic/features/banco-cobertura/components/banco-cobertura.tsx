@@ -3,7 +3,7 @@ import { useCallback } from 'react'
 import * as Plot from '@observablehq/plot'
 import type { EstadoBanco } from '@server/relatorio/api-tipos'
 import { fmtData, fmtNum } from '@server/relatorio/utils'
-import { CalendarRange } from 'lucide-react'
+import { Database } from 'lucide-react'
 
 import { PlotBox } from '@/atomic/features/relatorio-graficos/components/plot-box'
 
@@ -21,7 +21,8 @@ type Celula = { fonte: string; tabela: string; dia: string; n: number }
 
 /**
  * Barra de cobertura: uma linha por fonte com os dias que têm registros (mais forte = mais
- * registros no dia) e, em destaque, o período comum a todas — o "até agora" do relatório.
+ * registros no dia) e, em destaque, o período comum a todas — o "até agora" do relatório. A
+ * virada de cada ano aparece como uma linha, com o ano no topo.
  */
 export function BancoCobertura({ estado }: { estado: EstadoBanco }) {
   const [ini, fim] = estado.cobertura
@@ -35,6 +36,14 @@ export function BancoCobertura({ estado }: { estado: EstadoBanco }) {
       const x0 = utc(todos[0]),
         x1 = new Date(utc(todos.at(-1)!).getTime() + DIA_MS)
       const maior = Math.max(...celulas.map((c) => c.n))
+      // virada de ano: linha em 1º de janeiro e o ano escrito no topo (o do início também)
+      const anos: { x: Date; ano: number; virada: boolean }[] = [
+        { x: x0, ano: x0.getUTCFullYear(), virada: false },
+      ]
+      for (let a = x0.getUTCFullYear() + 1; a <= x1.getUTCFullYear(); a++) {
+        const x = new Date(Date.UTC(a, 0, 1))
+        if (x > x0 && x < x1) anos.push({ x, ano: a, virada: true })
+      }
       const nomes = estado.fontes.map((f) => f.nome)
       return Plot.plot({
         width,
@@ -76,6 +85,21 @@ export function BancoCobertura({ estado }: { estado: EstadoBanco }) {
                 }),
               ]
             : []),
+          Plot.ruleX(
+            anos.filter((a) => a.virada),
+            { x: 'x', stroke: 'currentColor', strokeOpacity: 0.55, strokeWidth: 1.5 }
+          ),
+          Plot.text(anos, {
+            x: 'x',
+            frameAnchor: 'top',
+            dy: -4,
+            dx: 4,
+            textAnchor: 'start',
+            fontWeight: 700,
+            fill: 'currentColor',
+            fillOpacity: 0.7,
+            text: (a: { ano: number }) => String(a.ano),
+          }),
           Plot.rect(celulas, {
             x1: (c: Celula) => utc(c.dia),
             x2: (c: Celula) => new Date(utc(c.dia).getTime() + DIA_MS - DIA_MS * 0.12),
@@ -103,7 +127,7 @@ export function BancoCobertura({ estado }: { estado: EstadoBanco }) {
     <div className="shrink-0 space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-semibold">
-          <CalendarRange className="size-4" /> Período com dados
+          <Database className="size-4" /> Período com dados
         </h3>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
           {estado.fontes.map((f) => (

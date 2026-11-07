@@ -1,53 +1,42 @@
-import type { TabelaBanco, TipoArquivo } from '@server/relatorio/api-tipos'
+import type { TabelaBanco } from '@server/relatorio/api-tipos'
 
 import { Loading } from '@/atomic/base-components/loading'
-
-import { RelatorioImportacaoDialog } from '@/atomic/features/relatorio-importacao/components/relatorio-importacao-dialog'
 
 import { useTabelaBancoQuery } from '@/atomic/features/banco-dados/hooks/queries/use-banco-queries'
 
 import { BancoTabela } from './banco-tabela'
 
-/** Arquivo do Bling que alimenta cada tabela (botão Importar dela). */
-const IMPORTACAO: Partial<
-  Record<TabelaBanco, { tipos: TipoArquivo[]; rotulo: string; ajuda: string }>
-> = {
+/** De onde vem cada tabela (a importação fica na aba Arquivos importados) e o nome do .xlsx. */
+const TABELAS: Record<Exclude<TabelaBanco, 'arquivos'>, { nome: string; ajuda: string }> = {
   propostas: {
-    tipos: ['orcamentos'],
-    rotulo: 'Importar orçamentos (CSV)',
-    ajuda: 'Propostas e seus itens vêm do CSV de orçamentos.',
+    nome: 'Propostas',
+    ajuda: 'Propostas e seus itens vêm do CSV de orçamentos do Bling.',
   },
   itensPropostas: {
-    tipos: ['orcamentos'],
-    rotulo: 'Importar orçamentos (CSV)',
+    nome: 'Itens das propostas',
     ajuda: 'Os itens vêm junto com as propostas, do CSV de orçamentos.',
   },
   pedidos: {
-    tipos: ['vendas'],
-    rotulo: 'Importar vendas (CSV)',
-    ajuda: 'Pedidos atendidos, um registro por item.',
+    nome: 'Pedidos',
+    ajuda: 'Pedidos atendidos (CSV de vendas do Bling), um registro por item.',
   },
   notas: {
-    tipos: ['notas'],
-    rotulo: 'Importar notas (PDF)',
-    ajuda: 'Relatório "Notas Fiscais por Operação" do Bling.',
+    nome: 'Notas fiscais',
+    ajuda: 'Relatório "Notas Fiscais por Operação" do Bling (PDF).',
   },
 }
 
-/** Uma tabela do banco com a importação do arquivo correspondente. */
-export function BancoTabelaAba({ tabela }: { tabela: TabelaBanco }) {
+/** Uma tabela do banco, com busca e exportação; importar fica em Arquivos importados. */
+export function BancoTabelaAba({ tabela }: { tabela: Exclude<TabelaBanco, 'arquivos'> }) {
   const { data, isPending } = useTabelaBancoQuery(tabela)
-  const imp = IMPORTACAO[tabela]
+  const info = TABELAS[tabela]
   if (isPending || !data) return <Loading text="" className="h-48" />
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
-      {imp && <p className="shrink-0 text-xs text-muted-foreground">{imp.ajuda}</p>}
-      <BancoTabela
-        conteudo={data}
-        ferramentas={
-          imp && <RelatorioImportacaoDialog tipos={imp.tipos} rotulo={imp.rotulo} pasta={false} />
-        }
-      />
+      <p className="shrink-0 text-xs text-muted-foreground">
+        {info.ajuda} Para importar, use a aba Arquivos importados.
+      </p>
+      <BancoTabela conteudo={data} exportarComo={info.nome} />
     </div>
   )
 }

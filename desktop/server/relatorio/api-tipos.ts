@@ -169,6 +169,14 @@ export type EstadoBanco = {
 
 export type ColunaBanco = { chave: string; titulo: string }
 /** GET /api/banco/tabela/:nome */
+/** POST /api/exportar/tabela: uma tabela do Banco de dados (as linhas da tela) em .xlsx. */
+export type PedidoExportarTabela = {
+  /** Nome do arquivo e da aba (ex.: 'Propostas'). */
+  nome: string
+  colunas: ColunaBanco[]
+  linhas: Record<string, string | number | null>[]
+}
+
 export type ConteudoTabela = {
   colunas: ColunaBanco[]
   linhas: Record<string, string | number | null>[]

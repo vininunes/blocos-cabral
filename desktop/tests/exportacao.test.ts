@@ -48,7 +48,8 @@ describe('PowerPoint e Excel', () => {
     const r = new Relatorio(base, SEMANA, f)
     const zip = await conferirPpt(r)
     const slides = Object.keys(zip.files).filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))
-    expect(slides.length).toBe(f === 'Todos' ? 14 : f === 'Cancelado' ? 11 : 11)
+    // + 1 slide de provisão no completo e no Faturado ("sem provisão" na base de teste)
+    expect(slides.length).toBe(f === 'Todos' ? 15 : f === 'Faturado' ? 12 : 11)
     await conferirExcel(r)
   })
 

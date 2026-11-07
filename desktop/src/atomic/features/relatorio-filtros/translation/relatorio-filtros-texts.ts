@@ -6,7 +6,7 @@ export const relatorioFiltrosTextsPTBR = {
     statusAjuda: 'Todos = relatório completo. Um status gera o relatório focado nele.',
     modo: 'Comparar com',
     modoAjuda:
-      'Período anterior: o período inteiro contra o anterior inteiro. Até a mesma data: período em andamento até o último dia com dados, contra o anterior até o mesmo ponto (ex.: 1 a 16/out x 1 a 16/set). Mesmo período do ano anterior: o mesmo corte, um ano antes. Personalizado: escolha livre. Sem comparação: só os números do período.',
+      'Não comparar: só os números do período. Período anterior, até o mesmo dia: o período em andamento até o último dia com dados contra o anterior até o mesmo ponto (ex.: 1 a 16/out x 1 a 16/set). Período anterior completo: o período inteiro contra o anterior inteiro. Mesmo período do ano passado: o mesmo corte, um ano antes. Personalizado: datas escolhidas.',
     de: 'De',
     ate: 'Até',
     cmpDe: 'Comparar de',

@@ -10,6 +10,7 @@
 //   PUT  /api/feedback              grava motivo/comentário/datas/pedido editados
 //   POST /api/exportar/ppt|excel    gera o PowerPoint/Excel do relatório em saida/ (ConsultaRelatorio)
 //   POST /api/exportar/carteira     carteira em processo (clientes e propostas) em .xlsx
+//   POST /api/exportar/tabela       uma tabela do Banco de dados (linhas da tela) em .xlsx
 //   POST /api/exportar/base         exporta a base inteira em .xlsx para saida/
 //   GET  /api/banco                 cobertura dia a dia por fonte e tamanho das tabelas
 //   GET  /api/banco/tabela/:nome    conteúdo de uma tabela (propostas, itensPropostas, pedidos, notas, arquivos)
@@ -30,6 +31,7 @@ import path from 'node:path'
 import type {
   ConsultaRelatorio,
   PedidoClientes,
+  PedidoExportarTabela,
   PedidoFeedback,
   PedidoImportacao,
   PedidoProvisaoLote,
@@ -159,6 +161,14 @@ export function createRelatorioApi(options: RelatorioApiOptions) {
           res,
           200,
           await exclusivo('Geração do arquivo', () => servico.exportarCarteira(consulta))
+        )
+      }
+      case 'POST /api/exportar/tabela': {
+        const pedido = await json<PedidoExportarTabela>(req)
+        return sendJson(
+          res,
+          200,
+          await exclusivo('Geração do arquivo', () => servico.exportarTabela(pedido))
         )
       }
       case 'POST /api/exportar/base':

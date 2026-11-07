@@ -8,10 +8,22 @@ import JSZip from 'jszip'
 import PptxGenJS from 'pptxgenjs'
 import path from 'node:path'
 
+import { indicadoresClientes } from './clientes'
 import * as C from './config'
 import { LOGO_PNG_BASE64, LOGO_PROPORCAO } from './logo'
 import { TODOS, type Celula, type KPI, type Relatorio, type Tabela } from './metricas'
-import { fmtData, fmtMoeda, fmtMoedaCurta, fmtNum, fmtPct, fmtQtd, fmtSinal, norm } from './utils'
+import { calcularProvisao } from './provisao'
+import {
+  chaveNome,
+  fmtData,
+  fmtMoeda,
+  fmtMoedaCurta,
+  fmtNum,
+  fmtPct,
+  fmtQtd,
+  fmtSinal,
+  norm,
+} from './utils'
 
 const SW = 960
 const SH = 540
@@ -20,6 +32,8 @@ const CINZA_TXT = '787878'
 const pol = (pt: number) => pt / 72
 const DATA = /^\d{4}-\d{2}-\d{2}$/
 const MESTRE = 'CABRAL'
+/** Cor da letra da classe ABC (A verde, B azul, C cinza), como no app. */
+const COR_ABC: Record<string, string> = { A: C.VERDE, B: C.AZUL, C: '8A8F99' }
 
 type Slide = PptxGenJS.Slide
 /** Dados de cada gráfico, na ordem em que entram no deck (chart1.xml, chart2.xml...). */
@@ -66,6 +80,21 @@ function formatar(v: Celula, f: Fmt): string {
   return s.length <= 60 ? s : s.slice(0, 57) + '...'
 }
 
+/** Largura aproximada (em em) de um caractere no Arial: maiúsculas são mais largas. */
+const emArial = (ch: string) =>
+  ch === ' ' ? 0.28 : /[.,:;'|!il1]/.test(ch) ? 0.3 : /[A-ZÀ-ÝMW@%&]/.test(ch) ? 0.7 : 0.56
+
+/** Corta o texto (com …) para caber numa linha da coluna de `largura` pt, na fonte `tam`. */
+function caber(txt: string, largura: number, tam: number) {
+  const max = (largura - 12) / tam // margens da célula (5 + 5) e folga
+  let usado = 0
+  for (let i = 0; i < txt.length; i++) {
+    usado += emArial(txt[i])
+    if (usado > max) return txt.slice(0, Math.max(1, i - 1)).trimEnd() + '…'
+  }
+  return txt
+}
+
 // ---------------------------------------------------------------- tabelas {colunas, linhas}
 
 const col = (t: Tabela, nome: string) => t.linhas.map((l) => l[t.colunas.indexOf(nome)])
@@ -88,6 +117,32 @@ class Deck {
   readonly pptx = new PptxGenJS()
   readonly graficos: DadosGrafico[] = []
   private readonly rotulo: string
+  private _abc: Map<string, string> | null = null
+
+  /** Classe ABC (curva da base inteira, por grupo econômico) pelo nome do cliente. */
+  abc(nome: Celula): string {
+    if (!this._abc) {
+      this._abc = new Map()
+      for (const c of indicadoresClientes(this.rel.base).clientes)
+        if (!this._abc.has(chaveNome(c.nome))) this._abc.set(chaveNome(c.nome), c.abc)
+    }
+    return this._abc.get(chaveNome(nome)) ?? '-'
+  }
+
+  /** Coluna ABC logo depois de Cliente, com a letra na cor da classe (como no app). */
+  comAbc(t: Tabela): { tabela: Tabela; cores: Record<string, string> } {
+    const j = t.colunas.indexOf('Cliente')
+    const cores: Record<string, string> = {}
+    const linhas = t.linhas.map((l, i) => {
+      const classe = this.abc(l[j])
+      if (COR_ABC[classe]) cores[`${i}|ABC`] = COR_ABC[classe]
+      return [...l.slice(0, j + 1), classe, ...l.slice(j + 1)]
+    })
+    return {
+      tabela: { colunas: [...t.colunas.slice(0, j + 1), 'ABC', ...t.colunas.slice(j + 1)], linhas },
+      cores,
+    }
+  }
 
   constructor(readonly rel: Relatorio) {
     this.pptx.layout = 'LAYOUT_WIDE' // 13,333 x 7,5 pol = 960 x 540 pt
@@ -278,7 +333,9 @@ class Deck {
       linhas.push(
         df.colunas.map((c, j) => {
           const f = fmtsR[c] ?? 't'
-          const txt = i === 0 ? c : formatar(df.linhas[i - 1][j], f)
+          const bruto = i === 0 ? c : formatar(df.linhas[i - 1][j], f)
+          // texto cortado na largura da coluna: cada registro em uma linha (a tabela não estoura o slide)
+          const txt = i > 0 && f === 't' ? caber(bruto, larguras[j], fonte) : bruto
           let cor = i === 0 ? 'FFFFFF' : C.GRAFITE
           if (i > 0 && (f === 'v' || f === 'dm') && txt && txt !== '0,0%' && txt !== 'R$ 0,00')
             cor = txt.startsWith('-') ? C.VERMELHO : C.VERDE
@@ -858,6 +915,8 @@ class Deck {
       { tipo: 'bar', cores: [C.VERDE] }
     )
 
+    this.provisao()
+
     s = this.slide('Vendas aprovadas no período')
     this.lista(s, r.lista(C.APROVADO), [70, 270, 170, 110, 85, 175], ['Motivo', 'Comentário'])
 
@@ -923,6 +982,7 @@ class Deck {
       380,
       { tipo: 'bar', cores: [C.VERDE] }
     )
+    if (st === C.FATURADO) this.provisao() // provisão é comparada com o faturamento
     if (st === C.CANCELADO) this.cancelamentos()
     else {
       s = this.slide('Detalhamento (maiores valores)')
@@ -965,36 +1025,171 @@ class Deck {
       50,
       12
     )
-    this.lista(s, can, [60, 190, 115, 90, 85, 75, 110, 155], [], 270, 8)
+    this.lista(s, can, [70, 250, 160, 120, 90, 90, 100], ['Status'], 270, 8)
+  }
+
+  /**
+   * Provisão x realizado no período do relatório: um slide com os cartões e o gráfico por cliente
+   * e outro com a tabela por cliente (maiores provisões primeiro).
+   */
+  provisao() {
+    const r = this.rel
+    const p = calcularProvisao(r.base, r.p, r.base.cobertura()[1])
+    let s = this.slide('Provisão x realizado')
+    if (!p.clientesComProvisao) {
+      this.texto(
+        s,
+        'Nenhum cliente com provisão no período. A provisão mensal é lançada na aba Provisão do app.',
+        M,
+        220,
+        SW - 2 * M,
+        30,
+        16,
+        false,
+        CINZA_TXT,
+        'center'
+      )
+      return
+    }
+    const dif = p.realizado - p.provisionado
+    const cartoes: [string, string, string, string][] = [
+      [
+        'Provisionado',
+        fmtMoeda(p.provisionado),
+        `${fmtNum(p.clientesComProvisao)} clientes · ${fmtNum(p.diasUteis)} dias úteis`,
+        C.AZUL,
+      ],
+      ['Realizado', fmtMoeda(p.realizado), 'faturamento (notas) desses clientes', C.AZUL],
+      [
+        'Atingido',
+        p.atingido === null ? '-' : fmtPct(p.atingido),
+        `${dif >= 0 ? '+' : '-'}${fmtMoeda(Math.abs(dif))} da provisão`,
+        p.atingido !== null && p.atingido >= 1 ? C.VERDE : C.VERMELHO,
+      ],
+      [
+        'Sem provisão',
+        fmtMoeda(p.realizadoSemProvisao),
+        'faturamento de clientes sem provisão',
+        C.AZUL,
+      ],
+    ]
+    const gap = 12
+    const w = (SW - 2 * M - gap * 3) / 4
+    cartoes.forEach(([rot, val, det, cor], i) => {
+      const l = M + i * (w + gap)
+      this.retangulo(s, l, 84, w, 74, C.CINZA_CLARO)
+      this.retangulo(s, l, 84, 5, 74, cor)
+      this.texto(s, rot, l + 16, 92, w - 24, 14, 11, false, '5A5A5A')
+      this.texto(s, val, l + 16, 108, w - 24, 26, val.length > 15 ? 17 : 20, true, cor)
+      this.texto(s, det, l + 16, 138, w - 24, 14, 9, false, CINZA_TXT)
+    })
+
+    const jC = p.tabela.colunas.indexOf('Cliente')
+    const jP = p.tabela.colunas.indexOf('Provisionado')
+    const jR = p.tabela.colunas.indexOf('Realizado')
+    const com = p.tabela.linhas
+      .filter((l) => Number(l[jP] ?? 0) > 0)
+      .sort((a, b) => Number(b[jP]) - Number(a[jP]))
+    const top = com.slice(0, 10)
+    this.texto(
+      s,
+      `Por cliente: realizado x provisão${com.length > top.length ? ` (${top.length} maiores provisões de ${com.length})` : ''}`,
+      M,
+      176,
+      SW - 2 * M,
+      16,
+      12,
+      true,
+      C.AZUL
+    )
+    this.grafico(
+      s,
+      top.map((l) => caber(String(l[jC]), 230, 10)),
+      {
+        Realizado: top.map((l) => Number(l[jR] ?? 0)),
+        Provisão: top.map((l) => Number(l[jP] ?? 0)),
+      },
+      M,
+      214,
+      SW - 2 * M,
+      SH - 214 - 44,
+      { tipo: 'bar', cores: [C.AZUL, C.CINZA], legenda: true }
+    )
+
+    s = this.slide('Provisão por cliente', r.p.rotulo)
+    const tabela = {
+      colunas: ['Cliente', 'Provisionado', 'Realizado', 'Diferença', '% atingido'],
+      linhas: com.map((l) => {
+        const prov = Number(l[jP] ?? 0)
+        const real = Number(l[jR] ?? 0)
+        return [l[jC], prov, real, real - prov, prov ? real / prov : null]
+      }),
+    }
+    const { tabela: comClasse, cores } = this.comAbc(tabela)
+    this.tabela(
+      s,
+      comClasse,
+      { Provisionado: 'm', Realizado: 'm', Diferença: 'dm', '% atingido': 'p' },
+      [330, 50, 130, 130, 130, 100],
+      { top: 96, maxLinhas: 18, tam: 10, coresCelulas: cores }
+    )
+    if (com.length > 18)
+      this.texto(
+        s,
+        `Mostrando as 18 maiores provisões de ${com.length} clientes.`,
+        M,
+        SH - 52,
+        SW - 2 * M,
+        14,
+        9,
+        false,
+        CINZA_TXT
+      )
   }
 
   /** Top 10 com o valor de A, de B, a diferença e a variação. */
   ranking(s: Slide, t: Tabela, chave: 'Cliente' | 'Produto', extras: string[], larguras: number[]) {
+    // clientes: coluna ABC (curva da base inteira) depois do nome
+    const abc = chave === 'Cliente' ? this.comAbc(t) : null
+    const base = abc?.tabela ?? t
+    const ext = abc ? ['ABC', ...extras] : extras
+    const coresCelulas = abc?.cores
     if (!this.rel.compara) {
-      const cols = [
-        chave,
-        ...extras,
-        ...t.colunas.filter((c) => c !== chave && !extras.includes(c)),
-      ]
-      const larg = chave === 'Cliente' ? [420, 200, 70, 150] : [480, 60, 120, 150]
-      this.tabela(s, selecionar(t, cols), { Qtd: 'i', Quantidade: 'i', Valor: 'm' }, larg)
+      const cols = [chave, ...ext, ...base.colunas.filter((c) => c !== chave && !ext.includes(c))]
+      const larg = chave === 'Cliente' ? [380, 50, 190, 70, 150] : [480, 60, 120, 150]
+      this.tabela(s, selecionar(base, cols), { Qtd: 'i', Quantidade: 'i', Valor: 'm' }, larg, {
+        coresCelulas,
+      })
       return
     }
-    const cols = [chave, ...extras, 'Valor', 'Valor anterior', 'Diferença', 'Variação']
-    const resto = (SW - 2 * M - larguras.reduce((a, b) => a + b, 0)) / 4
+    const cols = [chave, ...ext, 'Valor', 'Valor anterior', 'Diferença', 'Variação']
+    const larg = abc ? [larguras[0] - 30, 45, ...larguras.slice(1)] : larguras
+    const resto = (SW - 2 * M - larg.reduce((a, b) => a + b, 0)) / 4
     this.tabela(
       s,
-      selecionar(t, cols),
+      selecionar(base, cols),
       { Valor: 'm', 'Valor anterior': 'm', Diferença: 'dm', Variação: 'v' },
-      [...larguras, resto * 1.1, resto * 1.1, resto * 1.05, resto * 0.75],
-      { tam: 10 }
+      [...larg, resto * 1.1, resto * 1.1, resto * 1.05, resto * 0.75],
+      { tam: 10, coresCelulas }
     )
   }
 
   lista(s: Slide, t: Tabela, larguras: number[], ocultar: string[] = [], top = 84, maxLinhas = 12) {
-    const df = sem(t, ocultar)
-    const larg = larguras.filter(Boolean).slice(0, df.colunas.length)
-    while (larg.length < df.colunas.length) larg.push(90)
+    const visivel = sem(t, ocultar)
+    let larg = larguras.filter(Boolean).slice(0, visivel.colunas.length)
+    while (larg.length < visivel.colunas.length) larg.push(90)
+    // colunas sem nenhum valor nas linhas mostradas (ex.: Motivo/Comentário vazios) saem;
+    // a largura delas vai para a coluna Cliente
+    const mostradas = visivel.linhas.slice(0, maxLinhas)
+    const usa = visivel.colunas.map((_, j) => mostradas.some((l) => l[j] !== null && l[j] !== ''))
+    const sobra = larg.filter((_, j) => !usa[j]).reduce((a, b) => a + b, 0)
+    const df = sem(
+      visivel,
+      visivel.colunas.filter((_, j) => !usa[j])
+    )
+    larg = larg.filter((_, j) => usa[j])
+    const jCliente = df.colunas.indexOf('Cliente')
+    if (sobra && jCliente >= 0) larg[jCliente] += sobra
     const fmts: Record<string, Fmt> = { Valor: 'm' }
     df.colunas.forEach((c, j) => {
       if (df.linhas.some((l) => typeof l[j] === 'string' && DATA.test(l[j] as string)))

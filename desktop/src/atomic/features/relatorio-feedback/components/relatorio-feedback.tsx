@@ -16,6 +16,8 @@ import { Select } from '@/atomic/base-components/select'
 
 import { PageActionSearch } from '@/atomic/components/page-actions/page-action-search'
 
+import { TextoStatus } from '@/atomic/features/relatorio-filtros/components/texto-status'
+
 import { dateParaDia, diaParaDate } from '@/atomic/features/relatorio-filtros/helpers/datas'
 
 import { useEstadoBaseQuery } from '@/atomic/features/relatorio-consulta/hooks/queries/use-relatorio-queries'
@@ -129,7 +131,9 @@ export function RelatorioFeedback({ rel }: { rel: RespostaRelatorio }) {
                 <td className={cn(td, 'text-right tabular-nums whitespace-nowrap')}>
                   {fmtMoeda(p.valor)}
                 </td>
-                <td className={cn(td, 'whitespace-nowrap')}>{p.status}</td>
+                <td className={cn(td, 'whitespace-nowrap')}>
+                  <TextoStatus texto={p.status} />
+                </td>
                 <td className={cn(td, 'whitespace-nowrap')}>{fmtData(p.data)}</td>
                 {(['dt_aprovacao', 'dt_cancelamento'] as const).map((c) => (
                   <td key={c} className={cn(td, 'min-w-36')}>

@@ -1,36 +1,50 @@
 import { useMemo, useState } from 'react'
 
-import type { ClienteIndicadores, EdicaoClienteApi } from '@server/relatorio/api-tipos'
+import type { ClienteIndicadores } from '@server/relatorio/api-tipos'
 import { fmtData, fmtMoeda, fmtNum, fmtPct, norm } from '@server/relatorio/utils'
-import { ArrowDown, Minus, Save, Target, TrendingDown, TrendingUp } from 'lucide-react'
-import { toast } from 'sonner'
+import { ArrowDown, Minus, TrendingDown, TrendingUp } from 'lucide-react'
 
-import { Button } from '@/atomic/base-components/button'
-import { InputText } from '@/atomic/base-components/input-text'
 import { Loading } from '@/atomic/base-components/loading'
-import { Select } from '@/atomic/base-components/select'
 import { ToggleGroup, ToggleGroupItem } from '@/atomic/base-components/toggle-group'
 
 import { PageActionSearch } from '@/atomic/components/page-actions/page-action-search'
 
 import { SeloAbc } from '@/atomic/features/banco-dados/components/selo-abc'
-import { RelatorioImportacaoDialog } from '@/atomic/features/relatorio-importacao/components/relatorio-importacao-dialog'
+import { BancoExportar } from '@/atomic/features/banco-tabelas/components/banco-exportar'
 import { TabelaVirtual } from '@/atomic/features/relatorio-tabela/components/tabela-virtual'
 
 import { COR_ABC } from '@/atomic/features/banco-dados/helpers/cor-abc'
 
-import {
-  useClientesQuery,
-  useSalvarClientesMutation,
-} from '@/atomic/features/banco-dados/hooks/queries/use-banco-queries'
+import { useClientesQuery } from '@/atomic/features/banco-dados/hooks/queries/use-banco-queries'
 
 import { cn } from '@/lib/tailwind/utils'
 
-import { BancoProvisaoDialog } from './banco-provisao-dialog'
-
-type Campo = keyof EdicaoClienteApi
 type Ordem = 'faturamento' | 'potencial' | 'dias_sem_comprar' | 'nome'
-const SEM = '__sem'
+/** Situação do cliente para exibição (a aba é só leitura). */
+const SITUACAO: Record<string, string> = { ativo: 'Ativo', inativo: 'Inativo' }
+/** Colunas do .xlsx da aba Clientes (as chaves definem o formato: R$, %, datas). */
+const COLUNAS_EXPORTACAO = [
+  { chave: 'nome', titulo: 'Cliente' },
+  { chave: 'cnpj', titulo: 'CNPJ/CPF' },
+  { chave: 'fantasia', titulo: 'Fantasia' },
+  { chave: 'cidade', titulo: 'Cidade' },
+  { chave: 'uf', titulo: 'UF' },
+  { chave: 'abc', titulo: 'ABC' },
+  { chave: 'participacao', titulo: 'Participação' },
+  { chave: 'tendencia', titulo: 'Tendência' },
+  { chave: 'faturamento', titulo: 'Faturamento' },
+  { chave: 'notas', titulo: 'Notas' },
+  { chave: 'ticket_medio', titulo: 'Ticket médio' },
+  { chave: 'ultima_compra', titulo: 'Última compra' },
+  { chave: 'dias_sem_comprar', titulo: 'Dias sem comprar' },
+  { chave: 'conversao', titulo: 'Conversão' },
+  { chave: 'potencial', titulo: 'Potencial' },
+  { chave: 'provisao_mes', titulo: 'Provisão (mês atual)' },
+  { chave: 'grupo', titulo: 'Grupo econômico' },
+  { chave: 'segmento', titulo: 'Segmento' },
+  { chave: 'situacao', titulo: 'Situação' },
+  { chave: 'observacoes', titulo: 'Observações' },
+]
 /** Larguras fixas (px) das colunas: não mudam com o scroll da lista virtualizada. */
 const LARGURAS = [300, 170, 90, 120, 140, 70, 120, 110, 130, 95, 140, 160, 190, 170, 120, 280]
 
@@ -73,24 +87,15 @@ function OrdemBtn({
 }
 
 /**
- * Clientes: cadastro (dados + contatos do Bling), campos da equipe (grupo econômico, segmento,
- * situação, observações) e o estimador Curva ABC / potencial por grupo econômico.
+ * Clientes (só leitura): cadastro (dados + contatos do Bling), grupo econômico, segmento,
+ * situação e observações, e o estimador Curva ABC / potencial por grupo econômico. Exporta a
+ * lista da tela em .xlsx.
  */
 export function BancoClientes() {
   const { data, isPending } = useClientesQuery()
-  const salvar = useSalvarClientesMutation()
-  const [edicoes, setEdicoes] = useState<Record<string, EdicaoClienteApi>>({})
   const [busca, setBusca] = useState('')
   const [abc, setAbc] = useState<'Todos' | 'A' | 'B' | 'C' | '-'>('Todos')
   const [ordem, setOrdem] = useState<Ordem>('faturamento')
-  const [provisao, setProvisao] = useState<ClienteIndicadores | null>(null)
-
-  const valor = <K extends Campo>(c: ClienteIndicadores, k: K) =>
-    (edicoes[c.chave] && k in edicoes[c.chave]
-      ? edicoes[c.chave][k]
-      : c[k]) as ClienteIndicadores[K]
-  const editar = (c: ClienteIndicadores, k: Campo, v: string) =>
-    setEdicoes((e) => ({ ...e, [c.chave]: { ...e[c.chave], [k]: v } }))
 
   const linhas = useMemo(() => {
     const termo = norm(busca)
@@ -113,17 +118,8 @@ export function BancoClientes() {
     )
   }, [data, busca, abc, ordem])
 
-  const grupos = useMemo(
-    () => [...new Set((data?.clientes ?? []).map((c) => c.grupo).filter(Boolean))].sort(),
-    [data]
-  )
-  const segmentos = useMemo(
-    () => [...new Set((data?.clientes ?? []).map((c) => c.segmento).filter(Boolean))].sort(),
-    [data]
-  )
   if (isPending || !data) return <Loading text="" className="h-48" />
   const { resumo } = data
-  const alteradas = Object.keys(edicoes).length
 
   const th =
     'sticky top-0 z-10 bg-background border-b px-2 py-2 text-left text-xs font-medium whitespace-nowrap'
@@ -197,44 +193,43 @@ export function BancoClientes() {
           ))}
         </ToggleGroup>
         <div className="ml-auto" />
-        <RelatorioImportacaoDialog
-          variante="outline"
-          tipos={['contatos']}
-          rotulo="Importar contatos (CSV)"
-          pasta={false}
+        <BancoExportar
+          pedido={() => ({
+            nome: 'Clientes',
+            colunas: COLUNAS_EXPORTACAO,
+            // as linhas da tela (busca, filtro ABC e ordem)
+            linhas: linhas.map((c) => ({
+              ...Object.fromEntries(COLUNAS_EXPORTACAO.map(({ chave }) => [chave, null])),
+              nome: c.nome,
+              cnpj: c.cnpj ? documento(c.cnpj) : '',
+              fantasia: c.fantasia,
+              cidade: c.cidade,
+              uf: c.uf,
+              abc: c.abc,
+              participacao: c.participacao,
+              tendencia: c.tendencia,
+              faturamento: c.faturamento,
+              notas: c.notas,
+              ticket_medio: c.notas ? c.ticket_medio : null,
+              ultima_compra: c.ultima_compra,
+              dias_sem_comprar: c.dias_sem_comprar,
+              conversao: c.conversao,
+              potencial: c.potencial,
+              provisao_mes: c.provisao_mes || null,
+              grupo: c.grupo,
+              segmento: c.segmento,
+              situacao: SITUACAO[c.situacao] ?? '',
+              observacoes: c.observacoes,
+            })),
+          })}
         />
-        <Button
-          className="h-8"
-          disabled={!alteradas || salvar.isPending}
-          onClick={() =>
-            salvar.mutate(
-              { edicoes },
-              { onSuccess: () => (toast.success('Clientes salvos.'), setEdicoes({})) }
-            )
-          }
-        >
-          <Save className="size-4" />
-          {salvar.isPending ? 'Salvando…' : alteradas ? `Salvar (${alteradas})` : 'Salvar'}
-        </Button>
       </div>
-
-      <datalist id="grupos-economicos">
-        {grupos.map((g) => (
-          <option key={g} value={g} />
-        ))}
-      </datalist>
-      <datalist id="segmentos">
-        {segmentos.map((g) => (
-          <option key={g} value={g} />
-        ))}
-      </datalist>
 
       {linhas.length ? (
         <TabelaVirtual
           dados={linhas}
           chave={(c) => c.chave}
           larguras={LARGURAS}
-          linhaClasse={(c) => (edicoes[c.chave] ? 'bg-primary/5' : undefined)}
           cabecalho={() => (
             <tr>
               <th className={th}>
@@ -307,50 +302,16 @@ export function BancoClientes() {
               <td className={cn(td, num)}>{c.dias_sem_comprar ?? ''}</td>
               <td className={cn(td, num)}>{c.conversao === null ? '' : fmtPct(c.conversao)}</td>
               <td className={cn(td, num)}>{c.potencial ? fmtMoeda(c.potencial) : ''}</td>
-              <td className={cn(td, 'text-right')}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1.5 px-2 text-xs tabular-nums"
-                  onClick={() => setProvisao(c)}
-                >
-                  <Target className="size-3.5" />
-                  {c.provisao_mes ? fmtMoeda(c.provisao_mes) : 'Lançar'}
-                </Button>
+              <td className={cn(td, num)}>{c.provisao_mes ? fmtMoeda(c.provisao_mes) : ''}</td>
+              <td className={cn(td, 'truncate')} title={c.grupo}>
+                {c.grupo}
               </td>
-              <td className={cn(td, 'min-w-40')}>
-                <InputText
-                  list="grupos-economicos"
-                  value={valor(c, 'grupo') ?? ''}
-                  onChange={(e) => editar(c, 'grupo', e.target.value)}
-                />
+              <td className={cn(td, 'truncate')} title={c.segmento}>
+                {c.segmento}
               </td>
-              <td className={cn(td, 'min-w-36')}>
-                <InputText
-                  list="segmentos"
-                  value={valor(c, 'segmento') ?? ''}
-                  onChange={(e) => editar(c, 'segmento', e.target.value)}
-                />
-              </td>
-              <td className={cn(td, 'min-w-28')}>
-                <Select
-                  className="[&_button]:h-7 [&_button]:text-xs"
-                  items={[
-                    [
-                      { value: SEM, name: '—' },
-                      { value: 'ativo', name: 'Ativo' },
-                      { value: 'inativo', name: 'Inativo' },
-                    ],
-                  ]}
-                  value={valor(c, 'situacao') || SEM}
-                  onValueChange={(v) => editar(c, 'situacao', v === SEM ? '' : v)}
-                />
-              </td>
-              <td className={cn(td, 'min-w-64')}>
-                <InputText
-                  value={valor(c, 'observacoes') ?? ''}
-                  onChange={(e) => editar(c, 'observacoes', e.target.value)}
-                />
+              <td className={td}>{SITUACAO[c.situacao] ?? ''}</td>
+              <td className={cn(td, 'truncate')} title={c.observacoes}>
+                {c.observacoes}
               </td>
             </>
           )}
@@ -364,13 +325,8 @@ export function BancoClientes() {
       )}
       <p className="shrink-0 text-xs text-muted-foreground">
         {fmtNum(linhas.length)} de {fmtNum(data.clientes.length)} clientes. Grupo econômico junta
-        vários CNPJs/nomes na curva ABC (use o mesmo nome do grupo nos clientes da mesma empresa).
+        vários CNPJs/nomes na curva ABC.
       </p>
-      <BancoProvisaoDialog
-        cliente={provisao?.chave ?? null}
-        nome={provisao?.nome ?? ''}
-        onClose={() => setProvisao(null)}
-      />
     </div>
   )
 }

@@ -1,8 +1,10 @@
 import { relatorioApiInstance } from '@/services/relatorio-api-instance'
 import type {
+  ArquivoGerado,
   ConteudoTabela,
   EstadoBanco,
   PedidoClientes,
+  PedidoExportarTabela,
   PedidoProvisaoLote,
   PedidoProvisoes,
   Provisao,
@@ -52,4 +54,9 @@ export async function salvarProvisoes(cliente: string, pedido: PedidoProvisoes) 
 export async function lancarProvisaoEmLote(pedido: PedidoProvisaoLote) {
   return (await relatorioApiInstance.post<{ clientes: number }>('/banco/provisoes-lote', pedido))
     .data
+}
+
+/** Gera em saida/ o .xlsx de uma tabela do Banco de dados (as linhas da tela). */
+export async function exportarTabela(pedido: PedidoExportarTabela) {
+  return (await relatorioApiInstance.post<ArquivoGerado>('/exportar/tabela', pedido)).data
 }

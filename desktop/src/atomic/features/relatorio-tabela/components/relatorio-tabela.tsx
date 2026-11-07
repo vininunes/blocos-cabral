@@ -14,6 +14,8 @@ import { ArrowDown, ArrowUp, ChevronsUpDown, Inbox } from 'lucide-react'
 
 import { DetailsEmptyState } from '@/atomic/components/empty-state/details-empty-state'
 
+import { TextoStatus } from '@/atomic/features/relatorio-filtros/components/texto-status'
+
 import { cn } from '@/lib/tailwind/utils'
 
 import { corCelula, formatarCelula, formatoColuna } from '../helpers/formato-coluna'
@@ -21,6 +23,9 @@ import { tdClasse, thClasse } from '../helpers/tabela-virtual'
 import { TabelaVirtual } from './tabela-virtual'
 
 type Linha = Celula[]
+
+/** Colunas cujo texto é um status do fluxo (ganham o ícone do status). */
+const COLUNAS_STATUS = new Set(['Status', 'Etapa'])
 
 /** ~px por caractere no text-xs; limites da largura da coluna. */
 const PX_CARACTERE = 7
@@ -92,6 +97,9 @@ export function RelatorioTabela({
           cell: ({ getValue }) => {
             const v = getValue() as Celula
             if (celulas?.[nome]) return celulas[nome](v)
+            // status (e etapas do funil) com o mesmo ícone do select de status
+            if (COLUNAS_STATUS.has(nome) && typeof v === 'string')
+              return <TextoStatus texto={v} className="text-xs" />
             return (
               <span
                 className={cn(

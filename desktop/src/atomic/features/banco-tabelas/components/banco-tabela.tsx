@@ -20,9 +20,13 @@ import { DataTable } from '@/atomic/base-components/data-table'
 import { DetailsEmptyState } from '@/atomic/components/empty-state/details-empty-state'
 import { PageActionSearch } from '@/atomic/components/page-actions/page-action-search'
 
+import { TextoStatus } from '@/atomic/features/relatorio-filtros/components/texto-status'
+
 import { campoNumerico, formatarCampo } from '@/atomic/features/banco-dados/helpers/formato-campo'
 
 import { cn } from '@/lib/tailwind/utils'
+
+import { BancoExportar } from './banco-exportar'
 
 type Linha = Record<string, string | number | null>
 const POR_PAGINA = 50
@@ -34,11 +38,14 @@ const POR_PAGINA = 50
 export function BancoTabela({
   conteudo,
   ferramentas,
+  exportarComo,
   acoes,
-  vazio = 'Tabela vazia. Use Importar para trazer os dados do Bling.',
+  vazio = 'Tabela vazia. Importe os arquivos do Bling na aba Arquivos importados.',
 }: {
   conteudo: ConteudoTabela
   ferramentas?: ReactNode
+  /** Nome do .xlsx do botão Exportar (as linhas da tela: busca e ordenação). */
+  exportarComo?: string
   acoes?: (linha: Linha) => ReactNode
   vazio?: string
 }) {
@@ -69,17 +76,20 @@ export function BancoTabela({
               </button>
             )
           },
-          cell: ({ getValue }) => (
-            <span
-              className={cn(
-                'block max-w-80 truncate text-xs',
-                numerica && 'text-right tabular-nums whitespace-nowrap'
-              )}
-              title={String(getValue() ?? '')}
-            >
-              {formatarCampo(chave, getValue() as Linha[string])}
-            </span>
-          ),
+          cell: ({ getValue }) =>
+            chave === 'status' && typeof getValue() === 'string' ? (
+              <TextoStatus texto={getValue() as string} className="max-w-80 text-xs" />
+            ) : (
+              <span
+                className={cn(
+                  'block max-w-80 truncate text-xs',
+                  numerica && 'text-right tabular-nums whitespace-nowrap'
+                )}
+                title={String(getValue() ?? '')}
+              >
+                {formatarCampo(chave, getValue() as Linha[string])}
+              </span>
+            ),
         }
       }),
     [conteudo]
@@ -114,7 +124,20 @@ export function BancoTabela({
           placeholder="Buscar em todas as colunas"
           className="w-72"
         />
-        {ferramentas && <div className="ml-auto flex items-center gap-2">{ferramentas}</div>}
+        {(ferramentas || exportarComo) && (
+          <div className="ml-auto flex items-center gap-2">
+            {exportarComo && (
+              <BancoExportar
+                pedido={() => ({
+                  nome: exportarComo,
+                  colunas: conteudo.colunas,
+                  linhas: table.getPrePaginationRowModel().rows.map((r) => r.original),
+                })}
+              />
+            )}
+            {ferramentas}
+          </div>
+        )}
       </div>
       {!conteudo.linhas.length ? (
         <DetailsEmptyState className="h-48" icon={<Inbox />} title={vazio} description="" />

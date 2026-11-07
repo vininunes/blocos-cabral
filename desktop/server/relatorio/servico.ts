@@ -14,6 +14,7 @@ import type {
   KpiJson,
   Navegacao,
   PedidoClientes,
+  PedidoExportarTabela,
   PedidoFeedback,
   PedidoImportacao,
   PedidoProvisaoLote,
@@ -31,7 +32,7 @@ import { detectarTipo } from './leitores'
 import { DIMENSOES, Relatorio, TODOS, type Dimensao, type Tabela } from './metricas'
 import { migrarBaseAntiga, type ResultadoMigracao } from './migracao'
 import { comparacao, Periodo, SEM_COMPARACAO } from './periodo'
-import { COLUNAS_BASE, excelRelatorio, exportarBase } from './planilha'
+import { COLUNAS_BASE, excelRelatorio, exportarBase, exportarTabela } from './planilha'
 import { gerarPpt, nomeArquivo } from './ppt'
 import { calcularProvisao } from './provisao'
 import type { TipoArquivo } from './tipos'
@@ -153,6 +154,16 @@ export function criarServico(
       },
     })
     return gravarSaida(`Carteira_em_processo_${rel.p.fim}.xlsx`, xlsx)
+  }
+
+  /** Uma tabela do Banco de dados como está na tela (busca e ordenação) em saida/. */
+  async function exportarTabelaBanco(pedido: PedidoExportarTabela) {
+    const nome =
+      String(pedido.nome || 'Tabela')
+        .replace(/[^\p{L}\p{N} _-]/gu, '')
+        .trim() || 'Tabela'
+    const xlsx = await exportarTabela(nome, pedido.colunas ?? [], pedido.linhas ?? [])
+    return gravarSaida(`${nome.replaceAll(' ', '_')}_${hoje()}.xlsx`, xlsx)
   }
 
   async function exportarBaseXlsx() {
@@ -407,6 +418,7 @@ export function criarServico(
     exportar,
     exportarBase: exportarBaseXlsx,
     exportarCarteira,
+    exportarTabela: exportarTabelaBanco,
     arquivoDeSaida,
     migrar,
     pronto,

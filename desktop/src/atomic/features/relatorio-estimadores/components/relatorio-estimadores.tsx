@@ -14,6 +14,7 @@ import {
 import { RelatorioTabela } from '@/atomic/features/relatorio-tabela/components/relatorio-tabela'
 
 import { COR_ABC } from '@/atomic/features/banco-dados/helpers/cor-abc'
+import { filtrarTabela } from '@/atomic/features/relatorio-tabela/helpers/filtrar-tabela'
 
 import { useClientesQuery } from '@/atomic/features/banco-dados/hooks/queries/use-banco-queries'
 
@@ -27,7 +28,7 @@ const MAX_PARETO = 60
  * Estimadores dos clientes (Curva ABC / potencial), calculados sobre toda a base — não
  * dependem do período escolhido. Por grupo econômico (sem grupo, o próprio cliente).
  */
-export function RelatorioEstimadores() {
+export function RelatorioEstimadores({ busca = '' }: { busca?: string }) {
   const { data, isPending } = useClientesQuery()
 
   const { pareto, tabela } = useMemo(() => {
@@ -119,8 +120,8 @@ export function RelatorioEstimadores() {
           <div className="font-medium text-foreground">Toda a base, não só o período</div>
           Faturamento (notas){resumo.referencia ? ` até ${fmtData(resumo.referencia)}` : ''} por
           grupo econômico. Tendência: últimos 90 dias x 90 anteriores. Potencial: propostas em
-          aberto + pedidos aguardando nota. Grupo e segmento são editados em Banco de dados →
-          Clientes.
+          aberto (até 90 dias) + pedidos aguardando nota. Grupo e segmento são editados em Banco de
+          dados → Clientes.
         </div>
       </div>
       <GraficoMoldura
@@ -131,10 +132,10 @@ export function RelatorioEstimadores() {
         <GraficoPareto itens={pareto} formatar={fmtMoeda} formatarPct={(v) => fmtPct(v)} />
       </GraficoMoldura>
       <RelatorioTabela
-        tabela={tabela}
+        tabela={filtrarTabela(tabela, busca)}
         celulas={CELULAS}
         preencher
-        vazio="Sem faturamento na base."
+        vazio={busca ? 'Nada encontrado para a busca.' : 'Sem faturamento na base.'}
       />
     </div>
   )

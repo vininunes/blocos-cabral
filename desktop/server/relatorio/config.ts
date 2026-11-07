@@ -17,6 +17,9 @@ export const CANCELADO = 'Cancelado'
 export const STATUS = [PROCESSO, APROVADO, ENTREGUE, FATURADO, CANCELADO] as const
 export type Status = (typeof STATUS)[number]
 
+/** Carteira em processo: só propostas em aberto com até tantos dias de criação (as mais velhas saem). */
+export const IDADE_MAX_CARTEIRA = 90
+
 /** situação no Bling (orçamentos, normalizada) -> status do fluxo */
 export const MAPA_SITUACAO: Record<string, Status> = {
   rascunho: PROCESSO,

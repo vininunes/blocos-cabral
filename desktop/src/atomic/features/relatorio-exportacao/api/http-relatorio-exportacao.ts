@@ -1,7 +1,7 @@
 import { relatorioApiInstance } from '@/services/relatorio-api-instance'
 import type { ArquivoGerado, ConsultaRelatorio } from '@server/relatorio/api-tipos'
 
-export type TipoExportacao = 'ppt' | 'excel' | 'base'
+export type TipoExportacao = 'ppt' | 'excel' | 'carteira' | 'base'
 
 export async function exportar(tipo: TipoExportacao, consulta: ConsultaRelatorio | null) {
   const response = await relatorioApiInstance.post<ArquivoGerado>(

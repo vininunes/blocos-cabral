@@ -26,3 +26,14 @@ export const RELATORIO_TABS = [
 ] as const
 
 export type RelatorioTab = (typeof RELATORIO_TABS)[number]['value']
+
+/** Abas que mostram a base inteira (sem filtro de período nem comparação). */
+export const ABAS_BASE_INTEIRA: ReadonlySet<RelatorioTab> = new Set([
+  'pedidos',
+  'vendedores',
+  'clientes',
+  'produtos',
+  'cidades',
+  'provisao',
+  'detalhamento',
+])

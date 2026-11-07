@@ -7,12 +7,12 @@
  *   cliente): A = clientes que somam os primeiros 80% do faturamento, B = até 95%, C = o resto.
  * - Tendência: faturamento dos últimos 90 dias (até o fim dos dados) contra os 90 anteriores;
  *   sem histórico quando a base não cobre os 180 dias.
- * - Potencial = carteira em aberto (propostas em processo) + pedidos aguardando nota.
+ * - Potencial = carteira em aberto (propostas em processo com até 90 dias) + pedidos aguardando nota.
  */
 import { chaveCliente, type Base } from './base'
 import * as C from './config'
 import { addDias, agora, dia, difDias, type Dia } from './datas'
-import { taxaNoDia } from './provisao'
+import { provisaoDoMes } from './provisao'
 import type { Cliente } from './tipos'
 
 export const LIMITE_A = 0.8
@@ -49,8 +49,8 @@ export type ClienteIndicadores = Cliente & {
   faturamento_90d: number
   faturamento_90d_anterior: number
   potencial: number
-  /** Provisão vigente hoje (R$ por dia útil); 0 = sem provisão. */
-  provisao_dia: number
+  /** Provisão do mês atual (total R$); 0 = sem provisão. */
+  provisao_mes: number
 }
 
 export type ResumoAbc = Record<'A' | 'B' | 'C', { grupos: number; faturamento: number }> & {
@@ -67,6 +67,7 @@ export function indicadoresClientes(base: Base): {
   base.sincronizarClientes()
   const [inicio, fim] = base.cobertura()
   const ref = fim
+  const refCarteira = base.extensao()[1]
   const novo = () => ({
     faturamento: 0,
     notas: 0,
@@ -117,7 +118,12 @@ export function indicadoresClientes(base: Base): {
     a.propostas++
     if (APROVADOS.includes(p.status)) a.aprovadas++
     else if (p.status === C.CANCELADO) a.canceladas++
-    else a.carteira += p.valor
+    else {
+      // carteira em aberto: só propostas com até IDADE_MAX_CARTEIRA dias (até o último dia com
+      // qualquer dado, como na carteira do relatório)
+      const d = dia(p.data)
+      if (refCarteira && d && difDias(refCarteira, d) <= C.IDADE_MAX_CARTEIRA) a.carteira += p.valor
+    }
   }
 
   const linhas = base.t.clientes.map((c): ClienteIndicadores => {
@@ -152,7 +158,7 @@ export function indicadoresClientes(base: Base): {
       faturamento_90d: a.f90,
       faturamento_90d_anterior: a.f90ant,
       potencial: 0,
-      provisao_dia: taxaNoDia(base.provisoesDe(c.chave), agora().slice(0, 10)),
+      provisao_mes: provisaoDoMes(base.provisoesDe(c.chave), agora().slice(0, 10)),
     }
   })
 

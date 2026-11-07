@@ -12,21 +12,13 @@ import {
   type Row,
   type SortingState,
 } from '@tanstack/react-table'
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsUpDown,
-  Inbox,
-  Search,
-} from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown, Inbox } from 'lucide-react'
 
 import { Button } from '@/atomic/base-components/button'
 import { DataTable } from '@/atomic/base-components/data-table'
-import { InputText } from '@/atomic/base-components/input-text'
 
 import { DetailsEmptyState } from '@/atomic/components/empty-state/details-empty-state'
+import { PageActionSearch } from '@/atomic/components/page-actions/page-action-search'
 
 import { campoNumerico, formatarCampo } from '@/atomic/features/banco-dados/helpers/formato-campo'
 
@@ -113,17 +105,16 @@ export function BancoTabela({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <InputText
-          className="min-w-64 flex-1"
-          icon={<Search className="size-3.5" />}
-          placeholder="Buscar em todas as colunas"
+        <PageActionSearch
           value={busca}
-          onChange={(e) => {
-            setBusca(e.target.value)
+          onChange={(v) => {
+            setBusca(v)
             table.setPageIndex(0)
           }}
+          placeholder="Buscar em todas as colunas"
+          className="w-72"
         />
-        {ferramentas}
+        {ferramentas && <div className="ml-auto flex items-center gap-2">{ferramentas}</div>}
       </div>
       {!conteudo.linhas.length ? (
         <DetailsEmptyState className="h-48" icon={<Inbox />} title={vazio} description="" />

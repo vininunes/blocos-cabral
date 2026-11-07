@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 
 import type { ClienteIndicadores, EdicaoClienteApi } from '@server/relatorio/api-tipos'
 import { fmtData, fmtMoeda, fmtNum, fmtPct, norm } from '@server/relatorio/utils'
-import { ArrowDown, Minus, Save, Search, Target, TrendingDown, TrendingUp } from 'lucide-react'
+import { ArrowDown, Minus, Save, Target, TrendingDown, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/atomic/base-components/button'
@@ -11,8 +11,11 @@ import { Loading } from '@/atomic/base-components/loading'
 import { Select } from '@/atomic/base-components/select'
 import { ToggleGroup, ToggleGroupItem } from '@/atomic/base-components/toggle-group'
 
+import { PageActionSearch } from '@/atomic/components/page-actions/page-action-search'
+
 import { SeloAbc } from '@/atomic/features/banco-dados/components/selo-abc'
 import { RelatorioImportacaoDialog } from '@/atomic/features/relatorio-importacao/components/relatorio-importacao-dialog'
+import { TabelaVirtual } from '@/atomic/features/relatorio-tabela/components/tabela-virtual'
 
 import { COR_ABC } from '@/atomic/features/banco-dados/helpers/cor-abc'
 
@@ -28,6 +31,8 @@ import { BancoProvisaoDialog } from './banco-provisao-dialog'
 type Campo = keyof EdicaoClienteApi
 type Ordem = 'faturamento' | 'potencial' | 'dias_sem_comprar' | 'nome'
 const SEM = '__sem'
+/** Larguras fixas (px) das colunas: não mudam com o scroll da lista virtualizada. */
+const LARGURAS = [300, 170, 90, 120, 140, 70, 120, 110, 130, 95, 140, 160, 190, 170, 120, 280]
 
 const documento = (d: string) =>
   d.length === 14
@@ -167,17 +172,16 @@ export function BancoClientes() {
           Faturamento (notas) de toda a base
           {resumo.referencia ? ` até ${fmtData(resumo.referencia)}` : ''}, por grupo econômico (sem
           grupo, o próprio cliente). Tendência: últimos 90 dias x 90 anteriores. Potencial:
-          propostas em aberto + pedidos aguardando nota.
+          propostas em aberto (até 90 dias) + pedidos aguardando nota.
         </div>
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <InputText
-          className="min-w-64 flex-1"
-          icon={<Search className="size-3.5" />}
-          placeholder="Buscar cliente, CNPJ, cidade, grupo ou segmento"
+        <PageActionSearch
           value={busca}
-          onChange={(e) => setBusca(e.target.value)}
+          onChange={setBusca}
+          placeholder="Buscar cliente, CNPJ, cidade, grupo ou segmento"
+          className="w-72"
         />
         <ToggleGroup
           type="single"
@@ -192,6 +196,7 @@ export function BancoClientes() {
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
+        <div className="ml-auto" />
         <RelatorioImportacaoDialog
           variante="outline"
           tipos={['contatos']}
@@ -224,9 +229,13 @@ export function BancoClientes() {
         ))}
       </datalist>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-md border bg-card">
-        <table className="min-w-full border-separate border-spacing-0">
-          <thead>
+      {linhas.length ? (
+        <TabelaVirtual
+          dados={linhas}
+          chave={(c) => c.chave}
+          larguras={LARGURAS}
+          linhaClasse={(c) => (edicoes[c.chave] ? 'bg-primary/5' : undefined)}
+          cabecalho={() => (
             <tr>
               <th className={th}>
                 <OrdemBtn ordenar={ordenar} k="nome">
@@ -255,105 +264,104 @@ export function BancoClientes() {
                   Potencial
                 </OrdemBtn>
               </th>
-              <th className={cn(th, 'text-right')}>Provisão (R$/dia útil)</th>
+              <th className={cn(th, 'text-right')}>Provisão (mês atual)</th>
               <th className={th}>Grupo econômico</th>
               <th className={th}>Segmento</th>
               <th className={th}>Situação</th>
               <th className={th}>Observações</th>
             </tr>
-          </thead>
-          <tbody>
-            {linhas.map((c) => (
-              <tr key={c.chave} className={cn(edicoes[c.chave] && 'bg-primary/5')}>
-                <td className={cn(td, 'min-w-64')}>
-                  <div className="max-w-72 truncate font-medium" title={c.nome}>
-                    {c.nome}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {c.cnpj ? documento(c.cnpj) : 'sem CNPJ/CPF'}
-                    {c.origem === 'bling' && ' · Bling'}
-                    {c.fantasia && ` · ${c.fantasia}`}
-                  </div>
-                </td>
-                <td className={cn(td, 'whitespace-nowrap')}>
-                  {[c.cidade, c.uf].filter(Boolean).join('/')}
-                </td>
-                <td className={td}>
-                  <SeloAbc classe={c.abc} />
-                  {c.participacao > 0 && (
-                    <span className="ml-1 text-[11px] text-muted-foreground">
-                      {fmtPct(c.participacao)}
-                    </span>
-                  )}
-                </td>
-                <td className={cn(td, 'whitespace-nowrap')}>
-                  <span className="inline-flex items-center gap-1">
-                    <IconeTendencia t={c.tendencia} />
-                    {c.tendencia}
+          )}
+          linha={(c) => (
+            <>
+              <td className={cn(td, 'min-w-64')}>
+                <div className="max-w-72 truncate font-medium" title={c.nome}>
+                  {c.nome}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  {c.cnpj ? documento(c.cnpj) : 'sem CNPJ/CPF'}
+                  {c.origem === 'bling' && ' · Bling'}
+                  {c.fantasia && ` · ${c.fantasia}`}
+                </div>
+              </td>
+              <td className={cn(td, 'whitespace-nowrap')}>
+                {[c.cidade, c.uf].filter(Boolean).join('/')}
+              </td>
+              <td className={td}>
+                <SeloAbc classe={c.abc} />
+                {c.participacao > 0 && (
+                  <span className="ml-1 text-[11px] text-muted-foreground">
+                    {fmtPct(c.participacao)}
                   </span>
-                </td>
-                <td className={cn(td, num)}>{fmtMoeda(c.faturamento)}</td>
-                <td className={cn(td, num)}>{fmtNum(c.notas)}</td>
-                <td className={cn(td, num)}>{c.notas ? fmtMoeda(c.ticket_medio) : ''}</td>
-                <td className={cn(td, 'whitespace-nowrap')}>{fmtData(c.ultima_compra)}</td>
-                <td className={cn(td, num)}>{c.dias_sem_comprar ?? ''}</td>
-                <td className={cn(td, num)}>{c.conversao === null ? '' : fmtPct(c.conversao)}</td>
-                <td className={cn(td, num)}>{c.potencial ? fmtMoeda(c.potencial) : ''}</td>
-                <td className={cn(td, 'text-right')}>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 gap-1.5 px-2 text-xs tabular-nums"
-                    onClick={() => setProvisao(c)}
-                  >
-                    <Target className="size-3.5" />
-                    {c.provisao_dia ? fmtMoeda(c.provisao_dia) : 'Lançar'}
-                  </Button>
-                </td>
-                <td className={cn(td, 'min-w-40')}>
-                  <InputText
-                    list="grupos-economicos"
-                    value={valor(c, 'grupo') ?? ''}
-                    onChange={(e) => editar(c, 'grupo', e.target.value)}
-                  />
-                </td>
-                <td className={cn(td, 'min-w-36')}>
-                  <InputText
-                    list="segmentos"
-                    value={valor(c, 'segmento') ?? ''}
-                    onChange={(e) => editar(c, 'segmento', e.target.value)}
-                  />
-                </td>
-                <td className={cn(td, 'min-w-28')}>
-                  <Select
-                    className="[&_button]:h-7 [&_button]:text-xs"
-                    items={[
-                      [
-                        { value: SEM, name: '—' },
-                        { value: 'ativo', name: 'Ativo' },
-                        { value: 'inativo', name: 'Inativo' },
-                      ],
-                    ]}
-                    value={valor(c, 'situacao') || SEM}
-                    onValueChange={(v) => editar(c, 'situacao', v === SEM ? '' : v)}
-                  />
-                </td>
-                <td className={cn(td, 'min-w-64')}>
-                  <InputText
-                    value={valor(c, 'observacoes') ?? ''}
-                    onChange={(e) => editar(c, 'observacoes', e.target.value)}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!linhas.length && (
+                )}
+              </td>
+              <td className={cn(td, 'whitespace-nowrap')}>
+                <span className="inline-flex items-center gap-1">
+                  <IconeTendencia t={c.tendencia} />
+                  {c.tendencia}
+                </span>
+              </td>
+              <td className={cn(td, num)}>{fmtMoeda(c.faturamento)}</td>
+              <td className={cn(td, num)}>{fmtNum(c.notas)}</td>
+              <td className={cn(td, num)}>{c.notas ? fmtMoeda(c.ticket_medio) : ''}</td>
+              <td className={cn(td, 'whitespace-nowrap')}>{fmtData(c.ultima_compra)}</td>
+              <td className={cn(td, num)}>{c.dias_sem_comprar ?? ''}</td>
+              <td className={cn(td, num)}>{c.conversao === null ? '' : fmtPct(c.conversao)}</td>
+              <td className={cn(td, num)}>{c.potencial ? fmtMoeda(c.potencial) : ''}</td>
+              <td className={cn(td, 'text-right')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 px-2 text-xs tabular-nums"
+                  onClick={() => setProvisao(c)}
+                >
+                  <Target className="size-3.5" />
+                  {c.provisao_mes ? fmtMoeda(c.provisao_mes) : 'Lançar'}
+                </Button>
+              </td>
+              <td className={cn(td, 'min-w-40')}>
+                <InputText
+                  list="grupos-economicos"
+                  value={valor(c, 'grupo') ?? ''}
+                  onChange={(e) => editar(c, 'grupo', e.target.value)}
+                />
+              </td>
+              <td className={cn(td, 'min-w-36')}>
+                <InputText
+                  list="segmentos"
+                  value={valor(c, 'segmento') ?? ''}
+                  onChange={(e) => editar(c, 'segmento', e.target.value)}
+                />
+              </td>
+              <td className={cn(td, 'min-w-28')}>
+                <Select
+                  className="[&_button]:h-7 [&_button]:text-xs"
+                  items={[
+                    [
+                      { value: SEM, name: '—' },
+                      { value: 'ativo', name: 'Ativo' },
+                      { value: 'inativo', name: 'Inativo' },
+                    ],
+                  ]}
+                  value={valor(c, 'situacao') || SEM}
+                  onValueChange={(v) => editar(c, 'situacao', v === SEM ? '' : v)}
+                />
+              </td>
+              <td className={cn(td, 'min-w-64')}>
+                <InputText
+                  value={valor(c, 'observacoes') ?? ''}
+                  onChange={(e) => editar(c, 'observacoes', e.target.value)}
+                />
+              </td>
+            </>
+          )}
+        />
+      ) : (
+        <div className="flex-1 rounded-md border bg-card">
           <p className="p-6 text-center text-xs text-muted-foreground">
             Nenhum cliente neste filtro.
           </p>
-        )}
-      </div>
+        </div>
+      )}
       <p className="shrink-0 text-xs text-muted-foreground">
         {fmtNum(linhas.length)} de {fmtNum(data.clientes.length)} clientes. Grupo econômico junta
         vários CNPJs/nomes na curva ABC (use o mesmo nome do grupo nos clientes da mesma empresa).

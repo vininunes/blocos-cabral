@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import type {
   EdicaoFeedback,
   PropostaFeedback,
   RespostaRelatorio,
 } from '@server/relatorio/api-tipos'
-import { fmtData, fmtMoeda } from '@server/relatorio/utils'
+import { fmtData, fmtMoeda, norm } from '@server/relatorio/utils'
 import { Save } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -13,6 +13,8 @@ import { Button } from '@/atomic/base-components/button'
 import { DatePicker } from '@/atomic/base-components/date-picker'
 import { InputText } from '@/atomic/base-components/input-text'
 import { Select } from '@/atomic/base-components/select'
+
+import { PageActionSearch } from '@/atomic/components/page-actions/page-action-search'
 
 import { dateParaDia, diaParaDate } from '@/atomic/features/relatorio-filtros/helpers/datas'
 
@@ -40,6 +42,16 @@ export function RelatorioFeedback({ rel }: { rel: RespostaRelatorio }) {
   const editar = (p: PropostaFeedback, c: Campo, v: string | null) =>
     setEdicoes((e) => ({ ...e, [p.proposta]: { ...e[p.proposta], [c]: v } }))
   const alteradas = Object.keys(edicoes).length
+  const [busca, setBusca] = useState('')
+  const lista = useMemo(() => {
+    const termo = norm(busca)
+    if (!termo) return rel.feedback
+    return rel.feedback.filter((p) =>
+      [p.proposta, p.cliente, p.vendedor, p.status, p.pedido, p.nf, p.motivo, p.comentario].some(
+        (v) => norm(v ?? '').includes(termo)
+      )
+    )
+  }, [rel.feedback, busca])
 
   const onSalvar = () =>
     salvar.mutate(
@@ -63,14 +75,22 @@ export function RelatorioFeedback({ rel }: { rel: RespostaRelatorio }) {
           pedido ligado. Mostra as propostas do período e status selecionados (Todos = propostas com
           qualquer movimentação no período).
         </p>
-        <Button onClick={onSalvar} disabled={!alteradas || salvar.isPending} className="h-8">
-          <Save className="size-4" />
-          {salvar.isPending
-            ? 'Salvando…'
-            : alteradas
-              ? `Salvar feedback (${alteradas})`
-              : 'Salvar feedback'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <PageActionSearch
+            value={busca}
+            onChange={setBusca}
+            placeholder="Buscar proposta, cliente ou vendedor"
+            className="w-72"
+          />
+          <Button onClick={onSalvar} disabled={!alteradas || salvar.isPending} className="h-9">
+            <Save className="size-4" />
+            {salvar.isPending
+              ? 'Salvando…'
+              : alteradas
+                ? `Salvar feedback (${alteradas})`
+                : 'Salvar feedback'}
+          </Button>
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto rounded-md border bg-card">
         <table className="min-w-full border-separate border-spacing-0">
@@ -97,7 +117,7 @@ export function RelatorioFeedback({ rel }: { rel: RespostaRelatorio }) {
             </tr>
           </thead>
           <tbody>
-            {rel.feedback.map((p) => (
+            {lista.map((p) => (
               <tr key={p.proposta} className={cn(edicoes[p.proposta] && 'bg-primary/5')}>
                 <td className={td}>{p.proposta}</td>
                 <td className={cn(td, 'max-w-56 truncate')} title={p.cliente}>
@@ -151,9 +171,9 @@ export function RelatorioFeedback({ rel }: { rel: RespostaRelatorio }) {
             ))}
           </tbody>
         </table>
-        {!rel.feedback.length && (
+        {!lista.length && (
           <p className="p-6 text-center text-xs text-muted-foreground">
-            Nenhuma proposta neste período e status.
+            {busca ? 'Nada encontrado para a busca.' : 'Nenhuma proposta neste período e status.'}
           </p>
         )}
       </div>

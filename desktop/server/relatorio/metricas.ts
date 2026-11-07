@@ -91,6 +91,18 @@ export class KPI {
 // ---------------------------------------------------------------- auxiliares
 
 const entre = (d: Dia | null, ini: Dia, fim: Dia) => d !== null && d >= ini && d <= fim
+
+/** Lista por trás de indicadores: título da aba, indicadores que ela alimenta e os registros. */
+export type BaseIndicador = { titulo: string; indicadores: string[]; tabela: Tabela }
+
+/** Tira as colunas sem nenhum valor (ex.: Motivo/Comentário numa lista de notas). */
+function semColunasVazias(t: Tabela): Tabela {
+  const manter = t.colunas.map((_, j) => t.linhas.some((l) => l[j] !== null && l[j] !== ''))
+  return {
+    colunas: t.colunas.filter((_, j) => manter[j]),
+    linhas: t.linhas.map((l) => l.filter((_, j) => manter[j])),
+  }
+}
 const soma = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
 
 /** A - B e A / B - 1 (null quando B <= 0). */
@@ -139,6 +151,8 @@ export class Relatorio {
   readonly ant: Periodo
   readonly compara: boolean
   private _kpis: KPI[] | null = null
+  /** Último dia com qualquer dado (cache: a carteira consulta para cada proposta). */
+  private _ultimoDia: Dia | null = null
   private readonly peds: ItemPedido[]
   private readonly props: Props[]
 
@@ -250,10 +264,10 @@ export class Relatorio {
         .filter((r) => r.status === C.CANCELADO && entre(r.dt_cancelamento, ini, fim))
         .map((r) => registro(r, r.dt_cancelamento!, r.status))
     }
-    // processo: carteira aberta no último dia do período
+    // processo: carteira aberta no último dia do período (só propostas com até 90 dias)
     return this.props
-      .filter((r) => r.data !== null && r.data <= fim && !this.decidida(r, fim))
-      .map((r) => registro(r, r.data!, `${difDias(fim, r.data!)} dias`))
+      .filter((r) => this.naCarteira(r, fim))
+      .map((r) => registro(r, r.data!, `${difDias(this.refIdade(fim), r.data!)} dias`))
   }
 
   /** Pedidos feitos no período (data do pedido) que ainda não têm nota fiscal. */
@@ -368,6 +382,133 @@ export class Relatorio {
     }
   }
 
+  /**
+   * Registros do período A por trás dos indicadores (aba Indicadores): cada lista e os nomes
+   * dos indicadores calculados a partir dela.
+   */
+  basesIndicadores(): BaseIndicador[] {
+    const lista = (st: string) => semColunasVazias(this.lista(st))
+    if (this.filtro !== TODOS) {
+      const nomes = this.kpis().map((k) => k.nome)
+      const r: BaseIndicador[] = [
+        { titulo: this.filtro, indicadores: nomes, tabela: lista(this.filtro) },
+      ]
+      if (this.filtro === C.ENTREGUE)
+        r.push({
+          titulo: 'Aguardando nota',
+          indicadores: ['Aguardando nota'],
+          tabela: this.aguardandoNota(),
+        })
+      return r
+    }
+    const { inicio, fim } = this.p
+    const emitidas: Tabela = {
+      colunas: ['Proposta', 'Cliente', 'Vendedor', 'Valor', 'Criação', 'Status'],
+      linhas: desc(
+        this.props.filter((r) => entre(r.data, inicio, fim)),
+        (r) => r.valor
+      ).map((r) => [r.proposta, r.cliente, r.vendedor, r.valor, r.data, r.status]),
+    }
+    return [
+      {
+        titulo: 'Notas emitidas',
+        indicadores: [
+          'Faturamento (notas)',
+          'Notas emitidas',
+          'Ticket médio por nota',
+          'Clientes faturados',
+        ],
+        tabela: lista(C.FATURADO),
+      },
+      {
+        titulo: 'Pedidos entregues',
+        indicadores: ['Entregue (pedidos)', 'Pedidos entregues'],
+        tabela: lista(C.ENTREGUE),
+      },
+      {
+        titulo: 'Vendas aprovadas',
+        indicadores: ['Vendas aprovadas', 'Taxa de aprovação'],
+        tabela: lista(C.APROVADO),
+      },
+      { titulo: 'Propostas emitidas', indicadores: ['Propostas emitidas'], tabela: emitidas },
+      {
+        titulo: 'Cancelamentos',
+        indicadores: ['Propostas canceladas', 'Taxa de aprovação'],
+        tabela: lista(C.CANCELADO),
+      },
+      {
+        titulo: 'Carteira em processo',
+        indicadores: ['Carteira em processo'],
+        tabela: lista(C.PROCESSO),
+      },
+      {
+        titulo: 'Aguardando nota',
+        indicadores: ['Aguardando nota'],
+        tabela: this.aguardandoNota(),
+      },
+    ]
+  }
+
+  /**
+   * Carteira em processo no fim do período, por cliente (exportação): propostas em aberto com até
+   * 90 dias, somadas por cliente (CNPJ ou nome). Maiores valores primeiro.
+   */
+  carteiraPorCliente(): Tabela {
+    const ref = this.refIdade(this.p.fim)
+    type Acc = {
+      cliente: string
+      cnpj: string
+      cidade: string
+      vendedores: Set<string>
+      q: number
+      v: number
+      maisAntiga: Dia | null
+    }
+    const g = new Map<string, Acc>()
+    for (const r of this.conjunto(C.PROCESSO)) {
+      const k = r.cnpj || `nome:${r.cliente.trim().toLowerCase()}`
+      let a = g.get(k)
+      if (!a) {
+        a = {
+          cliente: r.cliente,
+          cnpj: r.cnpj,
+          cidade: r.cidade,
+          vendedores: new Set(),
+          q: 0,
+          v: 0,
+          maisAntiga: null,
+        }
+        g.set(k, a)
+      }
+      if (r.vendedor) a.vendedores.add(r.vendedor)
+      a.q++
+      a.v += r.valor
+      if (r.criacao && (!a.maisAntiga || r.criacao < a.maisAntiga)) a.maisAntiga = r.criacao
+    }
+    return {
+      colunas: [
+        'Cliente',
+        'CNPJ/CPF',
+        'Cidade',
+        'Vendedores',
+        'Propostas',
+        'Valor em aberto',
+        'Proposta mais antiga',
+        'Idade máxima (dias)',
+      ],
+      linhas: desc([...g.values()], (a) => a.v).map((a) => [
+        a.cliente,
+        a.cnpj,
+        a.cidade,
+        [...a.vendedores].sort().join(', '),
+        a.q,
+        a.v,
+        a.maisAntiga,
+        a.maisAntiga ? difDias(ref, a.maisAntiga) : null,
+      ]),
+    }
+  }
+
   /** Propostas da aba Feedback conforme período e status. */
   propostasFiltradas(): Proposta[] {
     const pr = this.base.propostas
@@ -461,12 +602,24 @@ export class Relatorio {
     return { ...t, colunas: t.colunas.map((c) => c.replace('anterior', `(${this.nomeB})`)) }
   }
 
+  /**
+   * Proposta em aberto no dia `d`, criada há no máximo IDADE_MAX_CARTEIRA dias. A idade conta até
+   * `d` ou até o último dia com dados, o que vier antes (num período que termina no futuro, a
+   * proposta de hoje não "envelhece" até o fim dele).
+   */
+  private naCarteira(r: Props, d: Dia) {
+    if (r.data === null || r.data > d || this.decidida(r, d)) return false
+    return difDias(this.refIdade(d), r.data) <= C.IDADE_MAX_CARTEIRA
+  }
+
+  /** Dia até o qual a idade da proposta conta: `d` ou o último dia com dados, o que vier antes. */
+  private refIdade(d: Dia): Dia {
+    this._ultimoDia ??= this.base.extensao()[1] ?? ''
+    return this._ultimoDia && this._ultimoDia < d ? this._ultimoDia : d
+  }
+
   private carteira(d: Dia) {
-    return soma(
-      this.props
-        .filter((r) => r.data !== null && r.data <= d && !this.decidida(r, d))
-        .map((r) => r.valor)
-    )
+    return soma(this.props.filter((r) => this.naCarteira(r, d)).map((r) => r.valor))
   }
 
   /**
@@ -746,19 +899,13 @@ export class Relatorio {
   /** Todos: Faturado x Entregue por balde. Foco: valor e qtd do status (Processo: carteira por idade). */
   evolucao(): Tabela {
     if (this.filtro === C.PROCESSO) {
-      const faixas = [
-        '0 a 7 dias',
-        '8 a 15 dias',
-        '16 a 30 dias',
-        '31 a 60 dias',
-        '61 a 90 dias',
-        'Mais de 90 dias',
-      ]
-      const limites = [7, 15, 30, 60, 90, 10 ** 6]
+      const faixas = ['0 a 7 dias', '8 a 15 dias', '16 a 30 dias', '31 a 60 dias', '61 a 90 dias'] // a carteira só tem propostas com até 90 dias (C.IDADE_MAX_CARTEIRA)
+      const limites = [7, 15, 30, 60, C.IDADE_MAX_CARTEIRA]
       const t = faixas.map(() => ({ v: 0, q: 0 }))
+      const ref = this.refIdade(this.p.fim) // mesma idade da carteira
       for (const c of this.conjunto(C.PROCESSO)) {
         if (c.criacao === null) continue
-        const idade = difDias(this.p.fim, c.criacao)
+        const idade = difDias(ref, c.criacao)
         const j = limites.findIndex((l) => idade <= l)
         if (j >= 0 && idade > -1) {
           t[j].v += c.valor

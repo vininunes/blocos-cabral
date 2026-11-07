@@ -1,5 +1,5 @@
 import { useAtomValue } from 'jotai'
-import { Database, Download, FileSpreadsheet, Loader2, Presentation } from 'lucide-react'
+import { Briefcase, Database, Download, FileSpreadsheet, Loader2, Presentation } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/atomic/base-components/button'
@@ -21,12 +21,13 @@ import { useExportarMutation } from '../hooks/queries/use-relatorio-exportacao-q
 const ROTULO: Record<TipoExportacao, string> = {
   ppt: 'PowerPoint gerado',
   excel: 'Excel gerado',
+  carteira: 'Carteira em processo exportada',
   base: 'Base exportada',
 }
 
 /**
- * Exportar: PowerPoint e Excel do relatório na tela (período, comparação e status) e a
- * base inteira em .xlsx. Os arquivos ficam em saida/; o aviso permite abrir ou mostrar na pasta.
+ * Exportar: PowerPoint e Excel do relatório na tela (período, comparação e status), a carteira
+ * em processo no fim do período (clientes e propostas, até 90 dias) e a base inteira em .xlsx. Os arquivos ficam em saida/; o aviso permite abrir ou mostrar na pasta.
  */
 export function RelatorioExportacaoMenu() {
   const consulta = useAtomValue(relatorioConsultaAtom)
@@ -75,6 +76,9 @@ export function RelatorioExportacaoMenu() {
         </DropdownMenuItem>
         <DropdownMenuItem disabled={!consulta} onSelect={() => gerar('excel')}>
           <FileSpreadsheet className="size-4" /> Excel (.xlsx)
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled={!consulta} onSelect={() => gerar('carteira')}>
+          <Briefcase className="size-4" /> Carteira em processo (.xlsx)
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => gerar('base')}>

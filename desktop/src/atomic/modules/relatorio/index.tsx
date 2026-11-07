@@ -20,6 +20,7 @@ import {
   RelatorioTipoPeriodo,
 } from '@/atomic/features/relatorio-filtros/components/relatorio-filtros-barra'
 import { RelatorioPeriodoFaixa } from '@/atomic/features/relatorio-filtros/components/relatorio-periodo-faixa'
+import { RelatorioPeriodoTodo } from '@/atomic/features/relatorio-filtros/components/relatorio-periodo-todo'
 import { RelatorioIndicadores } from '@/atomic/features/relatorio-indicadores/components/relatorio-indicadores'
 import { RelatorioPedidos } from '@/atomic/features/relatorio-pedidos/components/relatorio-pedidos'
 import { RelatorioProvisao } from '@/atomic/features/relatorio-provisao/components/relatorio-provisao'
@@ -39,7 +40,7 @@ import { Banco } from '@/atomic/modules/banco'
 import { DESKTOP_PLATFORM } from '@/config/desktop'
 
 import { RelatorioHeader } from './components/relatorio-header'
-import { RELATORIO_TABS, type RelatorioTab } from './constants/relatorio-tabs'
+import { ABAS_BASE_INTEIRA, RELATORIO_TABS, type RelatorioTab } from './constants/relatorio-tabs'
 import { relatorioTabAtom, telaAtom, type Tela } from './store/relatorio-state'
 
 /** Leva o período para o último dia coberto por todas as fontes ao abrir e após cada importação. */
@@ -60,6 +61,8 @@ function Conteudo() {
   const [tab, setTab] = useAtom(relatorioTabAtom)
   const { data: rel, isFetching, isPending } = useRelatorioQuery()
 
+  const baseInteira = ABAS_BASE_INTEIRA.has(tab)
+
   if (isPending || !rel) return <Loading text="Calculando o relatório…" className="h-64" />
   return (
     <div className="flex h-full flex-col">
@@ -76,14 +79,20 @@ function Conteudo() {
             value={tab}
             onValueChange={(value) => setTab(value as RelatorioTab)}
           />
-          <RelatorioFiltrosAcoes periodoB={rel.b} />
+          <RelatorioFiltrosAcoes periodoB={rel.b} semComparacao={baseInteira} />
         </div>
-        <div className="flex flex-wrap items-stretch gap-2">
-          <RelatorioTipoPeriodo />
-          <RelatorioFiltrosDatas />
-          <RelatorioPeriodoFaixa rel={rel} carregando={isFetching} />
-        </div>
-        <RelatorioCoberturaAviso rel={rel} />
+        {baseInteira ? (
+          <RelatorioPeriodoTodo rel={rel} />
+        ) : (
+          <>
+            <div className="flex flex-wrap items-stretch gap-2">
+              <RelatorioTipoPeriodo />
+              <RelatorioFiltrosDatas />
+              <RelatorioPeriodoFaixa rel={rel} carregando={isFetching} />
+            </div>
+            <RelatorioCoberturaAviso rel={rel} />
+          </>
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4">

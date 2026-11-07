@@ -143,15 +143,14 @@ export type Cliente = {
 }
 
 /**
- * Provisão do cliente: o que se espera vender para ele, em R$ por dia útil, a partir de
- * `inicio`. O lançamento seguinte (data maior) substitui este; valor 0 encerra a provisão.
+ * Provisão do cliente: o total (R$) que se espera faturar para ele num mês. No relatório, o
+ * total é dividido igualmente pelos dias úteis do mês (períodos parciais levam a parte deles).
  */
 export type Provisao = {
   id: string
   cliente: string // chave do cliente (CNPJ/CPF ou nome:...)
-  inicio: Dia
-  valor_dia: number
-  observacao: string
+  mes: string // 'AAAA-MM'
+  valor: number
   atualizado_em: DataHora
 }
 

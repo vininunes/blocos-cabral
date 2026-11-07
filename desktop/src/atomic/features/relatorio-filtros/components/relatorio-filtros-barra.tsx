@@ -63,8 +63,11 @@ export function RelatorioTipoPeriodo() {
  */
 export function RelatorioFiltrosAcoes({
   periodoB,
+  semComparacao = false,
 }: {
   periodoB?: { inicio: DiaIso; fim: DiaIso } | null
+  /** Abas da base inteira: só o status (sem "Comparar com"). */
+  semComparacao?: boolean
 }) {
   const [f, setF] = useAtom(relatorioFiltrosAtom)
 
@@ -76,21 +79,23 @@ export function RelatorioFiltrosAcoes({
         value={f.filtro}
         onValueChange={(v) => setF((x) => ({ ...x, filtro: v as Filtro }))}
       />
-      <PageActionSelect
-        className="w-60"
-        items={itens(MODOS)}
-        value={f.modo}
-        onValueChange={(v) => {
-          const modo = v as ModoComparacao
-          setF((x) => ({
-            ...x,
-            modo,
-            ...(modo === 'Personalizado' && !x.cmpDe && periodoB
-              ? { cmpDe: periodoB.inicio, cmpAte: periodoB.fim }
-              : {}),
-          }))
-        }}
-      />
+      {!semComparacao && (
+        <PageActionSelect
+          className="w-60"
+          items={itens(MODOS)}
+          value={f.modo}
+          onValueChange={(v) => {
+            const modo = v as ModoComparacao
+            setF((x) => ({
+              ...x,
+              modo,
+              ...(modo === 'Personalizado' && !x.cmpDe && periodoB
+                ? { cmpDe: periodoB.inicio, cmpAte: periodoB.fim }
+                : {}),
+            }))
+          }}
+        />
+      )}
     </div>
   )
 }

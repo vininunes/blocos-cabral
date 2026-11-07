@@ -134,6 +134,27 @@ function conferirCenario(b: Base, c: Cenario) {
     aguardandoNota: ordenada(g.aguardandoNota as TabelaPy),
   }
   if (c.filtro === 'Todos') obtido.todosPedidos = r.todosPedidos()
+  // regra nova da carteira: só propostas com até 90 dias, idade contada até o último dia com
+  // dados. A faixa "Mais de 90 dias" saiu e a distribuição por idade mudou; o total da carteira
+  // (valor e quantidade) continua igual ao gabarito, porque a base de teste só tem outubro.
+  if (c.filtro === 'Em processo') {
+    const total = (t: TabelaPy | Tabela, j: number) =>
+      t.linhas.reduce((s, l) => s + Number(l[j] ?? 0), 0)
+    const ev = esperado.evolucao as TabelaPy
+    const ob = obtido.evolucao as Tabela
+    expect(ob.linhas.map((l) => l[0])).not.toContain('Mais de 90 dias')
+    expect(total(ob, 1)).toBeCloseTo(total(ev, 1), 2)
+    expect(total(ob, 2)).toBe(total(ev, 2))
+    delete obtido.evolucao
+    delete esperado.evolucao
+    // coluna Idade da lista: também contada até o último dia com dados
+    const semIdade = (t: TabelaPy | Tabela) => {
+      const j = t.colunas.indexOf('Idade')
+      return { ...t, linhas: t.linhas.map((l) => l.filter((_, k) => k !== j)) }
+    }
+    obtido.lista = semIdade(obtido.lista as Tabela)
+    esperado.lista = semIdade(esperado.lista as TabelaPy)
+  }
   const colVendedores = c.filtro === 'Todos' ? 'Faturado' : 'Valor'
   for (const [nome, col] of [...Object.entries(RANKINGS), ['vendedores', colVendedores]]) {
     obtido[nome] = ranking(obtido[nome] as Tabela, col)

@@ -2,7 +2,7 @@
  * Dias úteis: segunda a sexta, sem os feriados nacionais (fixos + Sexta-feira Santa).
  * Carnaval e Corpus Christi são ponto facultativo e contam como dia útil.
  */
-import { addDias, ano, diaSemana, intervalo, type Dia } from './datas'
+import { addDias, ano, diaSemana, intervalo, ultimoDiaDoMes, type Dia } from './datas'
 
 const FIXOS = ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '11-20', '12-25']
 
@@ -41,3 +41,15 @@ export const diaUtil = (d: Dia) => diaSemana(d) < 5 && !feriados(ano(d)).has(d)
 
 /** Dias úteis de `ini` a `fim` (inclusive). */
 export const diasUteis = (ini: Dia, fim: Dia) => intervalo(ini, fim).filter(diaUtil)
+
+const porMes = new Map<string, number>()
+/** Dias úteis do mês 'AAAA-MM'. */
+export function diasUteisDoMes(m: string) {
+  let n = porMes.get(m)
+  if (n === undefined) {
+    const fim = ultimoDiaDoMes(Number(m.slice(0, 4)), Number(m.slice(5, 7)))
+    n = diasUteis(`${m}-01`, `${m}-${String(fim).padStart(2, '0')}`).length
+    porMes.set(m, n)
+  }
+  return n
+}

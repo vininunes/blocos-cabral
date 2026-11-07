@@ -7,6 +7,7 @@ import { LineChart, Target } from 'lucide-react'
 import { Button } from '@/atomic/base-components/button'
 
 import { DetailsEmptyState } from '@/atomic/components/empty-state/details-empty-state'
+import { PageActionSearch } from '@/atomic/components/page-actions/page-action-search'
 import { PageActionTabs } from '@/atomic/components/page-actions/page-action-tabs'
 
 import {
@@ -16,11 +17,15 @@ import {
 import { GraficoMoldura } from '@/atomic/features/relatorio-graficos/components/grafico-moldura'
 import { RelatorioTabela } from '@/atomic/features/relatorio-tabela/components/relatorio-tabela'
 
+import { filtrarTabela } from '@/atomic/features/relatorio-tabela/helpers/filtrar-tabela'
+
 import { cn } from '@/lib/tailwind/utils'
 
+import { GraficoProvisaoClientes, type ItemProvisao } from './grafico-provisao-clientes'
 import { RelatorioProvisaoClientes } from './relatorio-provisao-clientes'
 
 const eixoMil = (v: number) => `R$ ${fmtNum(v / 1000)} mil`
+const MAX_CLIENTES_GRAFICO = 15
 
 function Cartao({
   rotulo,
@@ -53,16 +58,17 @@ function Cartao({
 }
 
 /**
- * Provisão x realizado no período: o que se esperava vender (R$ por dia útil de cada cliente,
- * cadastrado em Banco de dados → Clientes) contra o faturamento (notas) desses clientes.
+ * Provisão x realizado no período: o que se esperava vender (total mensal de cada cliente,
+ * dividido pelos dias úteis do mês) contra o faturamento (notas) desses clientes.
  */
 export function RelatorioProvisao({ rel }: { rel: RespostaRelatorio }) {
   const [vista, setVista] = useState<'acompanhamento' | 'lancar'>(
     rel.provisao.clientesComProvisao ? 'acompanhamento' : 'lancar'
   )
+  const [busca, setBusca] = useState('')
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex shrink-0">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <PageActionTabs
           tabs={[
             {
@@ -75,18 +81,34 @@ export function RelatorioProvisao({ rel }: { rel: RespostaRelatorio }) {
           value={vista}
           onValueChange={(v) => setVista(v as typeof vista)}
         />
+        {vista === 'acompanhamento' && rel.provisao.clientesComProvisao > 0 && (
+          <PageActionSearch
+            value={busca}
+            onChange={setBusca}
+            placeholder="Buscar cliente ou grupo"
+            className="w-72"
+          />
+        )}
       </div>
       {vista === 'lancar' ? (
         <RelatorioProvisaoClientes />
       ) : (
-        <Acompanhamento rel={rel} onLancar={() => setVista('lancar')} />
+        <Acompanhamento rel={rel} busca={busca} onLancar={() => setVista('lancar')} />
       )}
     </div>
   )
 }
 
 /** Provisionado x realizado no período (cartões, acumulado e tabela por cliente). */
-function Acompanhamento({ rel, onLancar }: { rel: RespostaRelatorio; onLancar: () => void }) {
+function Acompanhamento({
+  rel,
+  busca,
+  onLancar,
+}: {
+  rel: RespostaRelatorio
+  busca: string
+  onLancar: () => void
+}) {
   const p = rel.provisao
   const { pontos, dias } = useMemo(() => {
     const ac = p.acumulado
@@ -100,6 +122,22 @@ function Acompanhamento({ rel, onLancar }: { rel: RespostaRelatorio; onLancar: (
     })
     return { pontos, dias }
   }, [p])
+  const tabela = useMemo(() => filtrarTabela(p.tabela, busca), [p.tabela, busca])
+  /** Clientes com provisão (os da busca), maiores provisões primeiro. */
+  const porCliente = useMemo(() => {
+    const j = (c: string) => tabela.colunas.indexOf(c)
+    return tabela.linhas
+      .map(
+        (l): ItemProvisao => ({
+          cliente: String(l[j('Cliente')]),
+          provisao: Number(l[j('Provisionado')] ?? 0),
+          realizado: Number(l[j('Realizado')] ?? 0),
+        })
+      )
+      .filter((i) => i.provisao > 0)
+      .sort((a, b) => b.provisao - a.provisao)
+  }, [tabela])
+  const grafico = porCliente.slice(0, MAX_CLIENTES_GRAFICO)
 
   if (!p.clientesComProvisao) {
     return (
@@ -108,7 +146,7 @@ function Acompanhamento({ rel, onLancar }: { rel: RespostaRelatorio; onLancar: (
           className="h-auto"
           icon={<Target />}
           title="Nenhum cliente com provisão neste período"
-          description="Lance a provisão (R$ por dia útil) dos clientes na aba Lançar provisão — um a um ou vários de uma vez."
+          description="Lance a provisão mensal (total R$ por mês) dos clientes na aba Lançar provisão — um a um ou vários de uma vez."
         />
         <Button variant="outline" onClick={onLancar}>
           <Target className="size-4" /> Lançar provisão
@@ -145,27 +183,37 @@ function Acompanhamento({ rel, onLancar }: { rel: RespostaRelatorio; onLancar: (
         <Cartao
           rotulo="Faturamento total"
           valor={fmtMoeda(p.realizado + p.realizadoSemProvisao)}
-          detalhe={rel.a.rotulo}
+          detalhe={rel.todo.rotulo}
         />
       </div>
-      <GraficoMoldura
-        altura={220}
-        className="shrink-0"
-        titulo="Acumulado no período: realizado x provisão"
-      >
-        <GraficoAcumulado
-          pontos={pontos}
-          dias={dias}
-          nomeA="Realizado"
-          nomeB="Provisão"
-          formatar={fmtMoeda}
-          formatarEixo={eixoMil}
-        />
-      </GraficoMoldura>
+      <div className="grid shrink-0 grid-cols-1 gap-3 xl:grid-cols-2">
+        <GraficoMoldura altura={260} titulo="Acumulado no período: realizado x provisão">
+          <GraficoAcumulado
+            pontos={pontos}
+            dias={dias}
+            nomeA="Realizado"
+            nomeB="Provisão"
+            formatar={fmtMoeda}
+            formatarEixo={eixoMil}
+          />
+        </GraficoMoldura>
+        <GraficoMoldura
+          altura={260}
+          titulo={`Por cliente: realizado x provisão${porCliente.length > grafico.length ? ` · ${grafico.length} maiores provisões de ${fmtNum(porCliente.length)}` : ''}`}
+        >
+          {grafico.length ? (
+            <GraficoProvisaoClientes itens={grafico} formatar={fmtMoeda} />
+          ) : (
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+              Nenhum cliente com provisão na busca.
+            </div>
+          )}
+        </GraficoMoldura>
+      </div>
       <RelatorioTabela
-        tabela={p.tabela}
+        tabela={tabela}
         preencher
-        vazio="Sem provisão nem faturamento no período."
+        vazio={busca ? 'Nada encontrado para a busca.' : 'Sem provisão nem faturamento no período.'}
       />
     </div>
   )

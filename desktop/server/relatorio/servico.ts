@@ -30,7 +30,7 @@ import { agora, dia, type Dia } from './datas'
 import { detectarTipo } from './leitores'
 import { DIMENSOES, Relatorio, TODOS, type Dimensao, type Tabela } from './metricas'
 import { migrarBaseAntiga, type ResultadoMigracao } from './migracao'
-import { comparacao, Periodo } from './periodo'
+import { comparacao, Periodo, SEM_COMPARACAO } from './periodo'
 import { COLUNAS_BASE, excelRelatorio, exportarBase } from './planilha'
 import { gerarPpt, nomeArquivo } from './ppt'
 import { calcularProvisao } from './provisao'
@@ -140,6 +140,21 @@ export function criarServico(
       : gravarSaida(nomeArquivo(rel, 'xlsx'), await excelRelatorio(rel.tabelasExcel()))
   }
 
+  /** Carteira em processo no fim do período da consulta: por cliente e as propostas. */
+  async function exportarCarteira(q: ConsultaRelatorio) {
+    const { rel } = relatorioDe({ ...q, filtro: TODOS })
+    const propostas = rel.lista(C.PROCESSO)
+    const manter = propostas.colunas.map((c) => c !== 'Motivo' && c !== 'Comentário')
+    const xlsx = await excelRelatorio({
+      Clientes: rel.carteiraPorCliente(),
+      Propostas: {
+        colunas: propostas.colunas.filter((_, j) => manter[j]),
+        linhas: propostas.linhas.map((l) => l.filter((_, j) => manter[j])),
+      },
+    })
+    return gravarSaida(`Carteira_em_processo_${rel.p.fim}.xlsx`, xlsx)
+  }
+
   async function exportarBaseXlsx() {
     return gravarSaida(`Base_Blocos_Cabral_${hoje()}.xlsx`, await exportarBase(base))
   }
@@ -152,7 +167,11 @@ export function criarServico(
   }
 
   function relatorio(q: ConsultaRelatorio): RespostaRelatorio {
-    const { a, b, rel } = relatorioDe(q)
+    const { a, b, rel: relPeriodo } = relatorioDe(q)
+    // Pedidos, rankings, provisão e detalhamento: a base inteira, sem comparação
+    const [ini, fim] = base.extensao()
+    const todo = ini && fim ? new Periodo('Personalizado', ini, fim) : a
+    const rel = new Relatorio(base, todo, q.filtro, null, SEM_COMPARACAO)
     const kpi = (k: ReturnType<Relatorio['kpis']>[number]) => k.toJSON() as KpiJson
     const series = q.filtro === TODOS ? [C.FATURADO, C.ENTREGUE, C.APROVADO] : [q.filtro]
     const ren = (t: Tabela) => rel.renomear(t)
@@ -168,7 +187,7 @@ export function criarServico(
 
     let detalhamento: RespostaRelatorio['detalhamento']
     const ag = rel.aguardandoNota()
-    const notaAguardando = `${ag.linhas.length} pedidos feitos no período ainda sem nota fiscal: ${fmtMoeda(soma(ag, 'Valor'))}. Eles entram em Entregue quando a nota for emitida.`
+    const notaAguardando = `${ag.linhas.length} pedidos ainda sem nota fiscal: ${fmtMoeda(soma(ag, 'Valor'))}. Eles entram em Entregue quando a nota for emitida.`
     if (q.filtro === TODOS) {
       const notas = rel.lista(C.FATURADO)
       detalhamento = [
@@ -195,7 +214,7 @@ export function criarServico(
         detalhamento.push({ titulo: 'Aguardando nota', tabela: ag, nota: notaAguardando })
     }
 
-    const feedback: PropostaFeedback[] = rel.propostasFiltradas().map((p) => ({
+    const feedback: PropostaFeedback[] = relPeriodo.propostasFiltradas().map((p) => ({
       proposta: p.proposta,
       cliente: p.cliente,
       vendedor: p.vendedor,
@@ -210,29 +229,33 @@ export function criarServico(
       comentario: p.comentario,
     }))
 
-    const provisao = calcularProvisao(base, a, base.cobertura()[1])
+    const provisao = calcularProvisao(base, todo, base.cobertura()[1])
 
     return {
       a: a.toJSON(),
       b: b?.toJSON() ?? null,
       modo: q.modo,
       filtro: q.filtro,
-      nomeA: rel.nomeA,
-      nomeB: rel.nomeB,
-      compara: rel.compara,
-      coberturaB: rel.coberturaB,
+      todo: todo.toJSON(),
+      nomeA: relPeriodo.nomeA,
+      nomeB: relPeriodo.nomeB,
+      compara: relPeriodo.compara,
+      coberturaB: relPeriodo.coberturaB,
       cobertura: base.cobertura(),
       navegacao: { anterior: navegar(q, -1), proximo: navegar(q, 1) },
-      grupos: rel.grupos().map(([titulo, ks]) => ({ titulo, kpis: ks.map(kpi) })),
-      acumulado: rel.compara ? Object.fromEntries(series.map((s) => [s, rel.acumulado(s)])) : {},
+      grupos: relPeriodo.grupos().map(([titulo, ks]) => ({ titulo, kpis: ks.map(kpi) })),
+      basesIndicadores: relPeriodo.basesIndicadores(),
+      acumulado: relPeriodo.compara
+        ? Object.fromEntries(series.map((s) => [s, relPeriodo.acumulado(s)]))
+        : {},
       variacoes: Object.fromEntries(
-        (Object.keys(DIMENSOES) as Dimensao[]).map((d) => [d, rel.variacoes(d, 5)])
+        (Object.keys(DIMENSOES) as Dimensao[]).map((d) => [d, relPeriodo.variacoes(d, 5)])
       ) as Record<Dimensao, Tabela>,
-      evolucao: rel.evolucao(),
-      funil: q.filtro === TODOS ? rel.funil() : null,
-      motivos: q.filtro === C.CANCELADO ? rel.motivos() : null,
+      evolucao: relPeriodo.evolucao(),
+      funil: q.filtro === TODOS ? relPeriodo.funil() : null,
+      motivos: q.filtro === C.CANCELADO ? relPeriodo.motivos() : null,
       vendedores: ren(rel.vendedores()),
-      clientes: ren(rel.clientes(50)),
+      clientes: ren(rel.clientes(Infinity)), // todos: a aba tem busca
       produtos: ren(rel.produtos(50)),
       cidades: ren(rel.cidades(50)),
       pedidos: rel.pedidosFiltrados(),
@@ -347,13 +370,13 @@ export function criarServico(
   }
 
   function lancarProvisaoEmLote(pedido: PedidoProvisaoLote) {
-    const n = base.lancarProvisaoEmLote(pedido.clientes ?? [], pedido.lancamento)
+    const n = base.lancarProvisaoEmLote(pedido.clientes ?? [], pedido.meses ?? [])
     base.salvar()
     return { clientes: n }
   }
 
   function salvarProvisoes(cliente: string, pedido: PedidoProvisoes) {
-    const r = base.salvarProvisoes(cliente, pedido.lancamentos ?? [])
+    const r = base.salvarProvisoes(cliente, Number(pedido.ano), pedido.meses ?? [])
     base.salvar()
     return r
   }
@@ -383,6 +406,7 @@ export function criarServico(
     salvarFeedback,
     exportar,
     exportarBase: exportarBaseXlsx,
+    exportarCarteira,
     arquivoDeSaida,
     migrar,
     pronto,

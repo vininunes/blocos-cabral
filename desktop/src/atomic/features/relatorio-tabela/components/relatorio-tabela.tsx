@@ -2,27 +2,34 @@ import { useMemo, useState, type ReactNode } from 'react'
 
 import type { Celula, Tabela } from '@server/relatorio/api-tipos'
 import {
+  flexRender,
   getCoreRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type Row,
   type SortingState,
 } from '@tanstack/react-table'
 import { ArrowDown, ArrowUp, ChevronsUpDown, Inbox } from 'lucide-react'
-
-import { DataTable } from '@/atomic/base-components/data-table'
 
 import { DetailsEmptyState } from '@/atomic/components/empty-state/details-empty-state'
 
 import { cn } from '@/lib/tailwind/utils'
 
 import { corCelula, formatarCelula, formatoColuna } from '../helpers/formato-coluna'
+import { tdClasse, thClasse } from '../helpers/tabela-virtual'
+import { TabelaVirtual } from './tabela-virtual'
 
 type Linha = Celula[]
 
+/** ~px por caractere no text-xs; limites da largura da coluna. */
+const PX_CARACTERE = 7
+const LARGURA_MIN = 64
+const LARGURA_MAX = 420
+
 /**
- * Tabela do relatório (DataTable do design system) a partir de { colunas, linhas }:
- * formata pelo nome da coluna e ordena pelo valor (não pelo texto) ao clicar no título.
+ * Tabela do relatório a partir de { colunas, linhas }: formata pelo nome da coluna e ordena pelo
+ * valor (não pelo texto) ao clicar no título. Virtualizada: só as linhas visíveis vão para o DOM.
  */
 export function RelatorioTabela({
   tabela,
@@ -101,6 +108,20 @@ export function RelatorioTabela({
       }),
     [tabela, titulos, celulas]
   )
+  // larguras pelo conteúdo de todas as linhas (não só das visíveis): colunas estáveis no scroll
+  const larguras = useMemo(
+    () =>
+      tabela.colunas.map((nome, j) => {
+        const formato = formatoColuna(
+          nome,
+          tabela.linhas.map((l) => l[j])
+        )
+        let maior = (titulos?.[nome] ?? nome).length + 3 // ícone de ordenação
+        for (const l of tabela.linhas) maior = Math.max(maior, formatarCelula(l[j], formato).length)
+        return Math.min(LARGURA_MAX, Math.max(LARGURA_MIN, Math.round(maior * PX_CARACTERE) + 24))
+      }),
+    [tabela, titulos]
+  )
   const table = useReactTable({
     data: tabela.linhas,
     columns,
@@ -113,16 +134,34 @@ export function RelatorioTabela({
   if (!tabela.linhas.length) {
     return <DetailsEmptyState className="h-40" icon={<Inbox />} title={vazio} description="" />
   }
+  const rows = table.getRowModel().rows
+  // texto inteiro no hover quando a célula é cortada
+  const titulo = (v: Celula) => (typeof v === 'string' && v.length > 30 ? v : undefined)
+  const headers = table.getHeaderGroups()[0].headers
   return (
-    <div
-      className={cn('flex min-h-0', preencher && 'flex-1', className)}
-      style={preencher ? undefined : { maxHeight: alturaMax }}
-    >
-      <DataTable
-        className={preencher ? 'h-full min-h-0' : undefined}
-        table={table}
-        disableColumnReorder
-      />
-    </div>
+    <TabelaVirtual<Row<Linha>>
+      dados={rows}
+      chave={(r) => r.id}
+      larguras={larguras}
+      preencher={preencher}
+      alturaMax={alturaMax}
+      className={className}
+      cabecalho={() => (
+        <tr>
+          {headers.map((h, i) => (
+            <th key={h.id} className={thClasse(i)}>
+              {flexRender(h.column.columnDef.header, h.getContext())}
+            </th>
+          ))}
+        </tr>
+      )}
+      linha={(r) =>
+        r.getVisibleCells().map((c, i) => (
+          <td key={c.id} className={tdClasse(i)} title={titulo(c.getValue() as Celula)}>
+            {flexRender(c.column.columnDef.cell, c.getContext())}
+          </td>
+        ))
+      }
+    />
   )
 }

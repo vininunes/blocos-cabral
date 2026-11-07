@@ -1,11 +1,12 @@
 import type { RespostaRelatorio } from '@server/relatorio/api-tipos'
 
+import { RelatorioIndicadoresBases } from './relatorio-indicadores-bases'
 import { RelatorioKpiDestaque } from './relatorio-kpi-destaque'
 import { RelatorioKpiLinha } from './relatorio-kpi-linha'
 
 /**
  * Destaques em cartões grandes; depois um bloco por etapa do fluxo (relatório completo)
- * ou os indicadores lado a lado (relatório focado num status).
+ * ou os indicadores lado a lado (relatório focado num status). Abaixo, os registros usados.
  */
 export function RelatorioIndicadores({ rel }: { rel: RespostaRelatorio }) {
   const [destaques, ...blocos] = rel.grupos
@@ -36,6 +37,7 @@ export function RelatorioIndicadores({ rel }: { rel: RespostaRelatorio }) {
           ))}
         </div>
       )}
+      <RelatorioIndicadoresBases rel={rel} />
     </div>
   )
 }

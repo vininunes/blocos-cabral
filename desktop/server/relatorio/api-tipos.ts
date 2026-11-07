@@ -97,6 +97,8 @@ export type PropostaFeedback = {
 export type RespostaRelatorio = {
   a: PeriodoJson
   b: PeriodoJson | null
+  /** Base inteira: período de Pedidos, rankings, Provisão e Detalhamento (sem comparação). */
+  todo: PeriodoJson
   modo: ModoComparacao
   filtro: Filtro
   nomeA: string
@@ -106,6 +108,8 @@ export type RespostaRelatorio = {
   cobertura: [DiaIso | null, DiaIso | null]
   navegacao: { anterior: Navegacao; proximo: Navegacao }
   grupos: { titulo: string; kpis: KpiJson[] }[]
+  /** Registros do período A por trás dos indicadores (abas abaixo dos cartões). */
+  basesIndicadores: import('./metricas').BaseIndicador[]
   /** Curva acumulada por série (Todos: Faturado, Entregue e Aprovado; foco: o status). */
   acumulado: Record<string, Tabela>
   variacoes: Record<Dimensao, Tabela>
@@ -119,7 +123,7 @@ export type RespostaRelatorio = {
   pedidos: { tabela: Tabela; explicacao: string }
   detalhamento: { titulo: string; tabela: Tabela; nota?: string }[]
   feedback: PropostaFeedback[]
-  /** Provisão x realizado (faturamento) dos clientes no período A. */
+  /** Provisão x realizado (faturamento) dos clientes na base inteira. */
   provisao: import('./provisao').ResultadoProvisao
 }
 
@@ -192,10 +196,12 @@ export type RespostaDesfazer = {
   notas: number
 }
 
-/** Provisão do cliente (R$ por dia útil a partir de uma data). GET/PUT /api/banco/provisoes/:cliente */
+/** Provisão do cliente (total R$ por mês). GET/PUT /api/banco/provisoes/:cliente */
 export type { Provisao } from './tipos'
 export type { ResultadoProvisao } from './provisao'
-export type LancamentoProvisao = { inicio: DiaIso; valor_dia: number; observacao: string }
-export type PedidoProvisoes = { lancamentos: LancamentoProvisao[] }
-/** POST /api/banco/provisoes-lote: o mesmo lançamento para vários clientes. */
-export type PedidoProvisaoLote = { clientes: string[]; lancamento: LancamentoProvisao }
+/** Mês 'AAAA-MM' e o total previsto; valor null = sem provisão no mês. */
+export type LancamentoProvisao = { mes: string; valor: number | null }
+/** PUT: troca os 12 meses do `ano` do cliente pelos enviados. */
+export type PedidoProvisoes = { ano: number; meses: LancamentoProvisao[] }
+/** POST /api/banco/provisoes-lote: grava os meses preenchidos para vários clientes. */
+export type PedidoProvisaoLote = { clientes: string[]; meses: LancamentoProvisao[] }

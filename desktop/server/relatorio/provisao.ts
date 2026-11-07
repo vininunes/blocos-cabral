@@ -1,10 +1,11 @@
 /**
- * Provisão x realizado no período: a provisão de cada cliente é a taxa (R$ por dia útil)
- * vigente em cada dia útil do período; o realizado é o faturamento (notas) do cliente.
+ * Provisão x realizado no período: a provisão de cada cliente é o total do mês dividido
+ * igualmente pelos dias úteis do mês; o período leva os dias úteis que caem nele. O realizado é
+ * o faturamento (notas) do cliente.
  */
 import { chaveCliente, type Base } from './base'
-import { dia, intervalo, type Dia } from './datas'
-import { diaUtil } from './dias-uteis'
+import { ano, dia, intervalo, mes, type Dia } from './datas'
+import { diasUteisDoMes, diaUtil } from './dias-uteis'
 import type { Tabela } from './metricas'
 import type { Periodo } from './periodo'
 import type { Provisao } from './tipos'
@@ -24,11 +25,16 @@ export type ResultadoProvisao = {
   tabela: Tabela
 }
 
-/** Taxa (R$ por dia útil) vigente num dia: o último lançamento com início até ele. */
-export function taxaNoDia(lancamentos: Provisao[], d: Dia) {
-  let taxa = 0
-  for (const l of lancamentos) if (l.inicio <= d) taxa = l.valor_dia // ordenados por início
-  return taxa
+/** Provisão do mês de `d` (total do mês); 0 = sem provisão. */
+export function provisaoDoMes(lancamentos: Provisao[], d: Dia) {
+  const m = `${ano(d)}-${String(mes(d)).padStart(2, '0')}`
+  return lancamentos.find((l) => l.mes === m)?.valor ?? 0
+}
+
+/** Parte da provisão num dia útil: total do mês / dias úteis do mês. */
+export function provisaoNoDia(lancamentos: Provisao[], d: Dia) {
+  const total = provisaoDoMes(lancamentos, d)
+  return total ? total / diasUteisDoMes(d.slice(0, 7)) : 0
 }
 
 export function calcularProvisao(
@@ -40,7 +46,7 @@ export function calcularProvisao(
   const dias = intervalo(per.inicio, per.fim)
   const uteis = dias.filter(diaUtil)
   const porCliente = new Map<string, Provisao[]>()
-  for (const p of [...base.t.provisoes].sort((a, b) => (a.inicio < b.inicio ? -1 : 1))) {
+  for (const p of base.t.provisoes) {
     porCliente.set(p.cliente, [...(porCliente.get(p.cliente) ?? []), p])
   }
 
@@ -49,7 +55,7 @@ export function calcularProvisao(
   for (const [cliente, ls] of porCliente) {
     const m = new Map<Dia, number>()
     for (const d of uteis) {
-      const t = taxaNoDia(ls, d)
+      const t = provisaoNoDia(ls, d)
       if (t) m.set(d, t)
     }
     if (m.size) prov.set(cliente, m)
@@ -73,17 +79,13 @@ export function calcularProvisao(
   const linhas = chaves.map((k) => {
     const provisionado = soma(prov.get(k))
     const realizado = soma(real.get(k))
-    const vigente = porCliente.has(k) ? taxaNoDia(porCliente.get(k)!, per.fim) : 0
     return {
       k,
       provisionado,
       realizado,
-      vigente,
-      dias: prov.get(k)?.size ?? 0,
       linha: [
         nomeDe(k),
         clientes.get(k)?.grupo ?? '',
-        vigente || null,
         prov.get(k)?.size ?? 0,
         provisionado,
         realizado,
@@ -131,7 +133,6 @@ export function calcularProvisao(
       colunas: [
         'Cliente',
         'Grupo',
-        'Valor/dia útil',
         'Dias úteis',
         'Provisionado',
         'Realizado',

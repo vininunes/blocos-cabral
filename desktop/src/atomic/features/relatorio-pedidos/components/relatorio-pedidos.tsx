@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 
 import type { RespostaRelatorio } from '@server/relatorio/api-tipos'
-import { fmtMoeda, fmtNum } from '@server/relatorio/utils'
-import { Search } from 'lucide-react'
+import { fmtMoeda, fmtNum, norm } from '@server/relatorio/utils'
 
-import { InputText } from '@/atomic/base-components/input-text'
 import { ToggleGroup, ToggleGroupItem } from '@/atomic/base-components/toggle-group'
+
+import { PageActionSearch } from '@/atomic/components/page-actions/page-action-search'
 
 import { RelatorioTabela } from '@/atomic/features/relatorio-tabela/components/relatorio-tabela'
 
@@ -28,16 +28,11 @@ export function RelatorioPedidos({ rel }: { rel: RespostaRelatorio }) {
   const { tabela, explicacao } = rel.pedidos
   const j = (c: string) => tabela.colunas.indexOf(c)
   const filtrada = useMemo(() => {
-    const termo = busca.trim().toLowerCase()
+    const termo = norm(busca)
     const linhas = tabela.linhas.filter(
       (l) =>
         (situacao === 'Todos' || l[j('Entregue')] === situacao) &&
-        (!termo ||
-          BUSCA.some((c) =>
-            String(l[j(c)] ?? '')
-              .toLowerCase()
-              .includes(termo)
-          ))
+        (!termo || BUSCA.some((c) => norm(String(l[j(c)] ?? '')).includes(termo)))
     )
     return { ...tabela, linhas }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -66,12 +61,11 @@ export function RelatorioPedidos({ rel }: { rel: RespostaRelatorio }) {
             ))}
           </ToggleGroup>
         </div>
-        <InputText
-          className="min-w-64 flex-1"
-          icon={<Search className="size-3.5" />}
-          placeholder="Buscar cliente, pedido, nota ou vendedor"
+        <PageActionSearch
           value={busca}
-          onChange={(e) => setBusca(e.target.value)}
+          onChange={setBusca}
+          placeholder="Buscar cliente, pedido, nota ou vendedor"
+          className="w-72"
         />
       </div>
       <div className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-3">

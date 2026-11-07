@@ -34,7 +34,8 @@ import type {
 } from './tipos'
 import { chaveNome, fmtData, norm } from './utils'
 
-export const VERSAO_BASE = 1
+/** 2: provisão mensal (total do mês); a provisão antiga (R$/dia útil a partir de uma data) é descartada. */
+export const VERSAO_BASE = 2
 
 export type Tabelas = {
   propostas: Proposta[]
@@ -45,6 +46,11 @@ export type Tabelas = {
   clientes: Cliente[]
   provisoes: Provisao[]
 }
+
+const MES_RE = /^\d{4}-(0[1-9]|1[0-2])$/
+/** Lançamento no formato mensal (os antigos, R$/dia útil a partir de uma data, são descartados). */
+const provisaoMensal = (p: Provisao) =>
+  typeof p?.mes === 'string' && MES_RE.test(p.mes) && typeof p.valor === 'number'
 
 export type ArquivoEntrada = { nome: string; conteudo: Uint8Array; tipo?: TipoArquivo | '' }
 
@@ -116,6 +122,7 @@ export class Base {
   private carregar() {
     const dados = JSON.parse(fs.readFileSync(this.caminho!, 'utf-8')) as Partial<Tabelas>
     this.t = { ...vazia(), ...dados }
+    this.t.provisoes = this.t.provisoes.filter(provisaoMensal)
   }
 
   /** Grava em arquivo temporário e troca no fim: nunca deixa a base pela metade. */
@@ -152,6 +159,15 @@ export class Base {
   }
 
   /** [início, fim] em que todas as fontes têm dados: do maior início ao menor fim. */
+  /** Primeiro e último dia com qualquer dado (notas, vendas ou orçamentos): a base inteira. */
+  extensao(): [Dia, Dia] | [null, null] {
+    const dias = [this.notas, this.pedidos, this.propostas]
+      .flatMap((t) => t.map((r) => dia(r.data)))
+      .filter((d): d is Dia => d !== null)
+    if (!dias.length) return [null, null]
+    return [dias.reduce((a, b) => (b < a ? b : a)), dias.reduce((a, b) => (b > a ? b : a))]
+  }
+
   cobertura(): [Dia, Dia] | [null, null] {
     const fontes = [this.notas, this.pedidos, this.propostas]
       .map((t) => t.map((r) => dia(r.data)).filter((d): d is Dia => d !== null))
@@ -485,60 +501,65 @@ export class Base {
 
   // ------------------------------------------------------------ provisões
 
-  /** Provisões de um cliente, da mais antiga para a mais recente. */
+  /** Provisões de um cliente, mês a mês. */
   provisoesDe(cliente: string) {
     return ordenar(
       this.t.provisoes.filter((p) => p.cliente === cliente),
-      (p) => p.inicio
+      (p) => p.mes
     )
   }
 
-  /**
-   * Troca os lançamentos de provisão de um cliente pelos enviados (a tela edita a lista toda).
-   * Datas repetidas: fica o último enviado.
-   */
-  salvarProvisoes(
-    cliente: string,
-    lancamentos: Pick<Provisao, 'inicio' | 'valor_dia' | 'observacao'>[]
-  ) {
-    const porData = new Map<string, Provisao>()
-    for (const l of lancamentos) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(l.inicio))
-        throw new Error(`Data inválida na provisão: ${l.inicio}`)
-      const valor = Number(l.valor_dia)
-      if (!Number.isFinite(valor) || valor < 0)
-        throw new Error('O valor por dia útil deve ser zero ou positivo.')
-      porData.set(l.inicio, {
-        id: `${cliente}|${l.inicio}`,
-        cliente,
-        inicio: l.inicio,
-        valor_dia: valor,
-        observacao: String(l.observacao ?? '').trim(),
-        atualizado_em: agora(),
-      })
+  /** Grava (ou apaga, com valor null) os meses enviados de um cliente; os outros meses ficam. */
+  private gravarMeses(cliente: string, meses: { mes: string; valor: number | null }[]) {
+    const novos = new Map<string, number | null>()
+    for (const l of meses) {
+      if (!MES_RE.test(l.mes)) throw new Error(`Mês inválido na provisão: ${l.mes}`)
+      const valor = l.valor === null || l.valor === undefined ? null : Number(l.valor)
+      if (valor !== null && (!Number.isFinite(valor) || valor < 0))
+        throw new Error('O valor da provisão deve ser zero ou positivo.')
+      novos.set(l.mes, valor)
     }
+    const quando = agora()
     this.t.provisoes = [
-      ...this.t.provisoes.filter((p) => p.cliente !== cliente),
-      ...porData.values(),
+      ...this.t.provisoes.filter((p) => p.cliente !== cliente || !novos.has(p.mes)),
+      ...[...novos]
+        .filter(([, v]) => v) // vazio ou 0 = sem provisão no mês
+        .map(([mes, valor]) => ({
+          id: `${cliente}|${mes}`,
+          cliente,
+          mes,
+          valor: valor!,
+          atualizado_em: quando,
+        })),
     ]
+  }
+
+  /** Troca os 12 meses do `ano` do cliente pelos enviados (mês ausente ou vazio = sem provisão). */
+  salvarProvisoes(cliente: string, ano: number, meses: { mes: string; valor: number | null }[]) {
+    if (!Number.isInteger(ano)) throw new Error(`Ano inválido na provisão: ${ano}`)
+    const doAno = new Map(
+      meses.filter((l) => l.mes?.startsWith(`${ano}-`)).map((l) => [l.mes, l.valor])
+    )
+    this.gravarMeses(
+      cliente,
+      Array.from({ length: 12 }, (_, i) => {
+        const mes = `${ano}-${String(i + 1).padStart(2, '0')}`
+        return { mes, valor: doAno.get(mes) ?? null }
+      })
+    )
     return this.provisoesDe(cliente)
   }
 
   /**
-   * Lança o mesmo valor (R$ por dia útil a partir de `inicio`) para vários clientes. Os
-   * lançamentos anteriores ficam (o novo vale a partir da sua data); se o cliente já tem um
-   * lançamento nessa data, ele é substituído.
+   * Grava os meses preenchidos para vários clientes; meses vazios não mexem no que cada cliente
+   * já tem.
    */
-  lancarProvisaoEmLote(
-    clientes: string[],
-    lancamento: Pick<Provisao, 'inicio' | 'valor_dia' | 'observacao'>
-  ) {
+  lancarProvisaoEmLote(clientes: string[], meses: { mes: string; valor: number | null }[]) {
     const unicos = [...new Set(clientes.filter(Boolean))]
     if (!unicos.length) throw new Error('Selecione ao menos um cliente.')
-    for (const cliente of unicos) {
-      const atuais = this.provisoesDe(cliente).filter((p) => p.inicio !== lancamento.inicio)
-      this.salvarProvisoes(cliente, [...atuais, lancamento])
-    }
+    const preenchidos = meses.filter((l) => l.valor !== null && l.valor !== undefined)
+    if (!preenchidos.length) throw new Error('Preencha ao menos um mês.')
+    for (const cliente of unicos) this.gravarMeses(cliente, preenchidos)
     return unicos.length
   }
 

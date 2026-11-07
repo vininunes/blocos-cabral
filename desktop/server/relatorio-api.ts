@@ -9,15 +9,16 @@
 //   POST /api/importacao/verificar  { nome, conteudo } -> tipo identificado e nome com que já foi importado
 //   PUT  /api/feedback              grava motivo/comentário/datas/pedido editados
 //   POST /api/exportar/ppt|excel    gera o PowerPoint/Excel do relatório em saida/ (ConsultaRelatorio)
+//   POST /api/exportar/carteira     carteira em processo (clientes e propostas) em .xlsx
 //   POST /api/exportar/base         exporta a base inteira em .xlsx para saida/
 //   GET  /api/banco                 cobertura dia a dia por fonte e tamanho das tabelas
 //   GET  /api/banco/tabela/:nome    conteúdo de uma tabela (propostas, itensPropostas, pedidos, notas, arquivos)
 //   GET  /api/banco/clientes        clientes com indicadores e a curva ABC
 //   PUT  /api/banco/clientes        grava grupo/segmento/situação/observações
 //   DELETE /api/banco/arquivos/:hash desfaz a importação de um arquivo (refaz a base sem ele)
-//   GET  /api/banco/provisoes/:cliente  lançamentos de provisão do cliente (R$ por dia útil)
-//   PUT  /api/banco/provisoes/:cliente  troca os lançamentos de provisão do cliente
-//   POST /api/banco/provisoes-lote      o mesmo lançamento de provisão para vários clientes
+//   GET  /api/banco/provisoes/:cliente  provisão do cliente (total R$ por mês)
+//   PUT  /api/banco/provisoes/:cliente  troca os 12 meses de um ano da provisão do cliente
+//   POST /api/banco/provisoes-lote      meses preenchidos da provisão para vários clientes
 //   GET  /api/saida/:nome           baixa um arquivo de saida/
 //   POST /api/saida/:nome/abrir     abre o arquivo no programa padrão (?mostrar=1: mostra na pasta)
 import type { Plugin } from 'vite'
@@ -150,6 +151,14 @@ export function createRelatorioApi(options: RelatorioApiOptions) {
           res,
           200,
           await exclusivo('Gravação da provisão', () => servico.lancarProvisaoEmLote(pedido))
+        )
+      }
+      case 'POST /api/exportar/carteira': {
+        const consulta = await json<ConsultaRelatorio>(req)
+        return sendJson(
+          res,
+          200,
+          await exclusivo('Geração do arquivo', () => servico.exportarCarteira(consulta))
         )
       }
       case 'POST /api/exportar/base':

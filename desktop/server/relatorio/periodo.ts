@@ -1,6 +1,6 @@
 /**
- * Períodos do relatório: Dia, Semana (seg-dom), Mês, Trimestre, Semestre, Ano e Personalizado,
- * e o período de comparação (anterior, até a mesma data, ano anterior ou personalizado).
+ * Períodos do relatório: Dia, Semana (seg-dom), Mês, Trimestre, Semestre, Ano, Personalizado e
+ * Todo o período (do primeiro ao último dia com dados na base), e o período de comparação (anterior, até a mesma data, ano anterior ou personalizado).
  */
 import {
   addDias,
@@ -24,7 +24,10 @@ export const TIPOS = [
   'Semestre',
   'Ano',
   'Personalizado',
+  'Todo o período',
 ] as const
+/** Do primeiro ao último dia com dados na base: sem navegação nem comparação. */
+export const TODO_PERIODO = 'Todo o período'
 export type TipoPeriodo = (typeof TIPOS)[number]
 export const MENSAIS: Partial<Record<TipoPeriodo, number>> = {
   Mês: 1,
@@ -72,7 +75,11 @@ export class Periodo {
     }
     const d1 = de || a
     const d2 = ate || de || a
-    return new Periodo('Personalizado', d1 <= d2 ? d1 : d2, d1 <= d2 ? d2 : d1)
+    return new Periodo(
+      tipo === TODO_PERIODO ? TODO_PERIODO : 'Personalizado',
+      d1 <= d2 ? d1 : d2,
+      d1 <= d2 ? d2 : d1
+    )
   }
 
   get dias() {
@@ -123,6 +130,8 @@ export class Periodo {
         return `${mes(i) <= 6 ? 1 : 2}º semestre de ${ano(i)}${ate}`
       case 'Ano':
         return `Ano ${ano(i)}${ate}`
+      case TODO_PERIODO:
+        return `Todo o período: ${fmtData(i)} a ${fmtData(f)}`
       default:
         return `${fmtData(i)} a ${fmtData(f)}`
     }
@@ -140,7 +149,8 @@ export class Periodo {
           : `Sem ${formatar(i, '%d/%m')}–${formatar(f, '%d/%m/%y')}`
       return `Sem ${formatar(i, '%d/%m/%y')}`
     }
-    if (this.tipo === 'Personalizado') return `${formatar(i, '%d/%m')}–${formatar(f, '%d/%m/%y')}`
+    if (this.tipo === 'Personalizado' || this.tipo === TODO_PERIODO)
+      return `${formatar(i, '%d/%m')}–${formatar(f, '%d/%m/%y')}`
     const txt = {
       Mês: `${MESES[mes(i) - 1].slice(0, 3)}/${formatar(i, '%y')}`,
       Trimestre: `${Math.floor((mes(i) - 1) / 3) + 1}º tri/${formatar(i, '%y')}`,
@@ -186,7 +196,7 @@ export function comparacao(
   de?: Dia | null,
   ate?: Dia | null
 ): [Periodo, Periodo | null] {
-  if (modo === SEM_COMPARACAO) return [p, null]
+  if (modo === SEM_COMPARACAO || p.tipo === TODO_PERIODO) return [p, null]
   if (modo === PERSONALIZADO) {
     const d1 = de || p.inicio
     const d2 = ate || de || p.fim

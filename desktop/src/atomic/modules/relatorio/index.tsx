@@ -10,6 +10,7 @@ import { Loading } from '@/atomic/base-components/loading'
 import { DetailsEmptyState } from '@/atomic/components/empty-state/details-empty-state'
 import { PageActionTabs } from '@/atomic/components/page-actions/page-action-tabs'
 
+import { RelatorioAcompanhamento } from '@/atomic/features/relatorio-acompanhamento/components/relatorio-acompanhamento'
 import { RelatorioDetalhamento } from '@/atomic/features/relatorio-detalhamento/components/relatorio-detalhamento'
 import { RelatorioExportacaoMenu } from '@/atomic/features/relatorio-exportacao/components/relatorio-exportacao-menu'
 import { RelatorioFeedback } from '@/atomic/features/relatorio-feedback/components/relatorio-feedback'
@@ -20,7 +21,6 @@ import {
   RelatorioTipoPeriodo,
 } from '@/atomic/features/relatorio-filtros/components/relatorio-filtros-barra'
 import { RelatorioPeriodoFaixa } from '@/atomic/features/relatorio-filtros/components/relatorio-periodo-faixa'
-import { RelatorioPeriodoTodo } from '@/atomic/features/relatorio-filtros/components/relatorio-periodo-todo'
 import { RelatorioIndicadores } from '@/atomic/features/relatorio-indicadores/components/relatorio-indicadores'
 import { RelatorioPedidos } from '@/atomic/features/relatorio-pedidos/components/relatorio-pedidos'
 import { RelatorioProvisao } from '@/atomic/features/relatorio-provisao/components/relatorio-provisao'
@@ -40,7 +40,7 @@ import { Banco } from '@/atomic/modules/banco'
 import { DESKTOP_PLATFORM } from '@/config/desktop'
 
 import { RelatorioHeader } from './components/relatorio-header'
-import { ABAS_BASE_INTEIRA, RELATORIO_TABS, type RelatorioTab } from './constants/relatorio-tabs'
+import { RELATORIO_TABS, type RelatorioTab } from './constants/relatorio-tabs'
 import { relatorioTabAtom, telaAtom, type Tela } from './store/relatorio-state'
 
 /** Leva o período para o último dia coberto por todas as fontes ao abrir e após cada importação. */
@@ -61,8 +61,6 @@ function Conteudo() {
   const [tab, setTab] = useAtom(relatorioTabAtom)
   const { data: rel, isFetching, isPending } = useRelatorioQuery()
 
-  const baseInteira = ABAS_BASE_INTEIRA.has(tab)
-
   if (isPending || !rel) return <Loading text="Calculando o relatório…" className="h-64" />
   return (
     <div className="flex h-full flex-col">
@@ -79,29 +77,21 @@ function Conteudo() {
             value={tab}
             onValueChange={(value) => setTab(value as RelatorioTab)}
           />
-          <RelatorioFiltrosAcoes periodoB={rel.b} semComparacao={baseInteira} />
+          <RelatorioFiltrosAcoes periodoB={rel.b} semComparacao={rel.a.tipo === 'Todo o período'} />
         </div>
-        {baseInteira ? (
-          <div className="flex flex-wrap items-stretch gap-2">
-            <RelatorioFiltroStatus />
-            <RelatorioPeriodoTodo rel={rel} />
-          </div>
-        ) : (
-          <>
-            <div className="flex flex-wrap items-stretch gap-2">
-              <RelatorioFiltroStatus />
-              <RelatorioTipoPeriodo periodoA={rel.a} />
-              <RelatorioPeriodoFaixa rel={rel} carregando={isFetching} />
-            </div>
-            <RelatorioCoberturaAviso rel={rel} />
-          </>
-        )}
+        <div className="flex flex-wrap items-stretch gap-2">
+          <RelatorioFiltroStatus />
+          <RelatorioTipoPeriodo periodoA={rel.a} />
+          <RelatorioPeriodoFaixa rel={rel} carregando={isFetching} />
+        </div>
+        <RelatorioCoberturaAviso rel={rel} />
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4">
         {tab === 'indicadores' && <RelatorioIndicadores rel={rel} />}
         {tab === 'visao-geral' && <RelatorioVisaoGeral rel={rel} />}
         {tab === 'pedidos' && <RelatorioPedidos rel={rel} />}
+        {tab === 'acompanhamento' && <RelatorioAcompanhamento rel={rel} />}
         {tab === 'vendedores' && <RelatorioRanking rel={rel} ranking="vendedores" />}
         {tab === 'clientes' && <RelatorioRanking rel={rel} ranking="clientes" />}
         {tab === 'produtos' && <RelatorioRanking rel={rel} ranking="produtos" />}

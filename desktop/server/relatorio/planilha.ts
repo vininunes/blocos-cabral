@@ -8,6 +8,7 @@ import type { Base } from './base'
 import { EDITAVEIS } from './base'
 import * as C from './config'
 import type { Celula, FormatoKpi, Tabela } from './metricas'
+import type { ResultadoProjecao } from './projecao'
 
 const DIA = /^\d{4}-\d{2}-\d{2}$/
 const DATA_HORA = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/
@@ -44,9 +45,13 @@ function formatoColuna(nome: string, valores: Celula[]): string | null {
   return '"R$" #,##0.00'
 }
 
-/** { aba: tabela } -> .xlsx formatado (cabeçalho azul, larguras, R$, %, datas). */
+/**
+ * { aba: tabela } -> .xlsx formatado (cabeçalho azul, larguras, R$, %, datas). Com `projecao`,
+ * entra também a aba Projeção (quadro de metas e projeção de vendas).
+ */
 export async function excelRelatorio(
-  tabelas: Record<string, Tabela & { formatos?: FormatoKpi[] }>
+  tabelas: Record<string, Tabela & { formatos?: FormatoKpi[] }>,
+  projecao?: ResultadoProjecao | null
 ): Promise<Uint8Array> {
   const wb = new ExcelJS.Workbook()
   for (const [nome, t] of Object.entries(tabelas)) {
@@ -88,7 +93,89 @@ export async function excelRelatorio(
       })
     }
   }
+  if (projecao && temProjecao(projecao)) abaProjecao(wb, projecao)
   return new Uint8Array(await wb.xlsx.writeBuffer())
+}
+
+// ---------------------------------------------------------------- projeção
+
+/** Cores do quadro de metas (como na planilha da equipe). */
+export const CORES_PROJECAO = {
+  vender_mais: 'E8392B',
+  meta_mensal: 'A0CF5F',
+  parar_vender: 'FFFF4F',
+  mes: 'E0844A',
+} as const
+
+export const METAS_PROJECAO = [
+  ['vender_mais', 'Vender Mais'],
+  ['meta_mensal', 'Meta Mensal'],
+  ['parar_vender', 'Parar de Vender'],
+] as const
+
+/** Há o que mostrar no quadro: algum cliente com projeção ou alguma meta. */
+export const temProjecao = (p: ResultadoProjecao) =>
+  p.linhas.length > 0 || p.metas.some((m) => METAS_PROJECAO.some(([k]) => m[k] !== null))
+
+/**
+ * Aba Projeção: metas do mês (Vender Mais, Meta Mensal, Parar de Vender) em cima, clientes por
+ * rank com o valor total do pedido e a projeção de cada mês, e os totais no fim.
+ */
+function abaProjecao(wb: ExcelJS.Workbook, p: ResultadoProjecao) {
+  const ws = wb.addWorksheet('Projeção', { views: [{ showGridLines: false }] })
+  const MOEDA = '"R$" #,##0;-"R$" #,##0;"R$" 0'
+  const MOEDA_CENT = '"R$" #,##0.00'
+  const ultima = 3 + p.meses.length // colunas: A rank, B cliente, C valor total, D.. meses
+  ws.columns = [{ width: 7 }, { width: 44 }, { width: 24 }, ...p.meses.map(() => ({ width: 18 }))]
+  const borda: Partial<ExcelJS.Borders> = {
+    top: { style: 'thin' },
+    left: { style: 'thin' },
+    bottom: { style: 'thin' },
+    right: { style: 'thin' },
+  }
+  const pintar = (c: ExcelJS.Cell, cor: string) =>
+    (c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(cor) } })
+  const linha = (valores: ExcelJS.CellValue[]) => {
+    const r = ws.addRow(valores)
+    for (let j = 1; j <= ultima; j++) r.getCell(j).border = borda
+    return r
+  }
+
+  // metas: rótulo colorido e o valor de cada mês na coluna do mês
+  const titulo = linha(['', 'META DE VENDAS'])
+  titulo.getCell(2).font = { bold: true, size: 16 }
+  titulo.getCell(2).alignment = { horizontal: 'center' }
+  for (const [k, nome] of METAS_PROJECAO) {
+    const r = linha(['', nome, '', ...p.metas.map((m) => m[k])])
+    for (let j = 2; j <= ultima; j++) {
+      const c = r.getCell(j)
+      pintar(c, CORES_PROJECAO[k])
+      c.font = { bold: true }
+      c.alignment = { horizontal: 'center' }
+      if (j > 3) c.numFmt = MOEDA
+    }
+  }
+
+  // cabeçalho
+  const cab = linha(['Rank', 'BLOCOS / PISOS INTERTRAVADOS', 'VALOR TOTAL PEDIDO', ...p.rotulos])
+  cab.height = 34
+  cab.eachCell((c, j) => {
+    c.font = { bold: true, size: j === 1 ? 11 : 13 }
+    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+    if (j > 3) pintar(c, CORES_PROJECAO.mes)
+  })
+
+  for (const l of p.linhas) {
+    const r = linha([l.rank, l.nome, l.valor_total, ...l.meses.map((v) => v || null)])
+    r.getCell(3).numFmt = Number.isInteger(l.valor_total ?? 0) ? MOEDA : MOEDA_CENT
+    for (let j = 4; j <= ultima; j++) r.getCell(j).numFmt = MOEDA
+  }
+  linha([])
+  const proj = linha(['', 'VENDAS PROJETADAS', null, ...p.projetadas])
+  proj.font = { bold: true }
+  for (let j = 4; j <= ultima; j++) proj.getCell(j).numFmt = MOEDA
+  const conc = linha(['', 'VENDAS CONCRETIZADAS', p.concretizadas])
+  conc.getCell(3).numFmt = MOEDA
 }
 
 // ---------------------------------------------------------------- base exportada

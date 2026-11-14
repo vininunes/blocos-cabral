@@ -8,10 +8,13 @@ import JSZip from 'jszip'
 import PptxGenJS from 'pptxgenjs'
 import path from 'node:path'
 
+import { calcularAcompanhamento } from './acompanhamento'
 import { indicadoresClientes } from './clientes'
 import * as C from './config'
 import { LOGO_PNG_BASE64, LOGO_PROPORCAO } from './logo'
 import { TODOS, type Celula, type KPI, type Relatorio, type Tabela } from './metricas'
+import { CORES_PROJECAO, METAS_PROJECAO, temProjecao } from './planilha'
+import type { LinhaProjecao, ResultadoProjecao } from './projecao'
 import { calcularProvisao } from './provisao'
 import {
   chaveNome,
@@ -144,7 +147,10 @@ class Deck {
     }
   }
 
-  constructor(readonly rel: Relatorio) {
+  constructor(
+    readonly rel: Relatorio,
+    private readonly proj: ResultadoProjecao | null = null
+  ) {
     this.pptx.layout = 'LAYOUT_WIDE' // 13,333 x 7,5 pol = 960 x 540 pt
     this.pptx.author = 'Blocos Cabral'
     this.pptx.title = 'Relatório de Vendas'
@@ -916,6 +922,7 @@ class Deck {
     )
 
     this.provisao()
+    this.projecao()
 
     s = this.slide('Vendas aprovadas no período')
     this.lista(s, r.lista(C.APROVADO), [70, 270, 170, 110, 85, 175], ['Motivo', 'Comentário'])
@@ -928,6 +935,8 @@ class Deck {
       `${ag.linhas.length} pedidos feitos no período ainda sem nota: ${fmtMoeda(soma(num(ag, 'Valor')))}. Entram em Entregue/Faturado quando a nota for emitida.`
     )
     this.lista(s, ag, [70, 330, 210, 120, 110], [], 96)
+
+    this.acompanhamento()
   }
 
   deckFoco() {
@@ -982,7 +991,11 @@ class Deck {
       380,
       { tipo: 'bar', cores: [C.VERDE] }
     )
-    if (st === C.FATURADO) this.provisao() // provisão é comparada com o faturamento
+    if (st === C.FATURADO) {
+      this.provisao() // provisão é comparada com o faturamento
+      this.projecao()
+    }
+    if (st === C.ENTREGUE) this.acompanhamento() // entregas dando baixa nos pedidos em aberto
     if (st === C.CANCELADO) this.cancelamentos()
     else {
       s = this.slide('Detalhamento (maiores valores)')
@@ -1147,6 +1160,178 @@ class Deck {
       )
   }
 
+  /**
+   * Acompanhamento de pedidos (posição no fim do período): pedidos em aberto com o % entregue e o
+   * restante, maiores restantes primeiro. Sem pedidos em aberto, o slide não entra.
+   */
+  acompanhamento() {
+    const r = this.rel
+    const ac = calcularAcompanhamento(r.base, r.p.fim)
+    const abertos = ac.pedidos.filter((p) => p.situacao !== 'Concluído')
+    if (!abertos.length) return
+    const t = ac.totais
+    const s = this.slide(
+      'Acompanhamento de pedidos',
+      `${fmtNum(t.em_aberto)} pedidos em aberto em ${fmtData(ac.referencia)}: ${fmtMoeda(t.restante)} a entregar` +
+        (t.pct_entregue === null
+          ? ''
+          : ` · ${fmtPct(t.pct_entregue)} do valor dos pedidos já entregue`)
+    )
+    const MAX = 16
+    this.tabela(
+      s,
+      {
+        colunas: ['Pedido', 'Cliente', 'Data', 'Valor', 'Entregue', '% entregue', 'Restante'],
+        linhas: abertos.map((p) => [
+          p.pedido,
+          p.cliente,
+          p.data ? fmtData(p.data) : '',
+          p.valor,
+          p.entregue,
+          p.pct_entregue,
+          p.restante,
+        ]),
+      },
+      { Data: 'r', Valor: 'm', Entregue: 'm', '% entregue': 'p', Restante: 'm' },
+      [60, 300, 80, 120, 120, 80, 120],
+      { top: 96, maxLinhas: MAX, tam: 10 }
+    )
+    if (abertos.length > MAX)
+      this.texto(
+        s,
+        `Mostrando os ${MAX} maiores restantes de ${abertos.length} pedidos em aberto (lista completa no Excel).`,
+        M,
+        SH - 52,
+        SW - 2 * M,
+        14,
+        9,
+        false,
+        CINZA_TXT
+      )
+  }
+
+  /**
+   * Meta de vendas e projeção (mês atual e seguinte): metas coloridas em cima, clientes por rank
+   * com o valor total do pedido e a projeção de cada mês, e os totais no último slide. Sem
+   * projeção nem metas, o slide não entra.
+   */
+  projecao() {
+    const p = this.proj
+    if (!p || !temProjecao(p)) return
+    // linhas renderizam com ~20pt: abaixo das metas cabem 15 linhas (clientes e, no último
+    // slide, os 2 totais)
+    const CABEM = 15
+    const grupos: LinhaProjecao[][] = []
+    let resto = p.linhas
+    while (resto.length > CABEM - 2) {
+      const n = Math.min(CABEM, resto.length - 1) // o último slide leva ao menos 1 cliente
+      grupos.push(resto.slice(0, n))
+      resto = resto.slice(n)
+    }
+    grupos.push(resto)
+    const larg = [50, 390, 160, ...p.meses.map(() => 280 / p.meses.length)]
+    const fonte = 10
+    type Cel = PptxGenJS.TableCell
+    const cel = (
+      text: string,
+      {
+        alin = 'left',
+        negrito = false,
+        fundo = 'FFFFFF',
+        cor = C.GRAFITE,
+        tam = fonte,
+      }: { alin?: Alin; negrito?: boolean; fundo?: string; cor?: string; tam?: number } = {}
+    ): Cel => ({
+      text,
+      options: {
+        fill: { color: fundo },
+        color: cor,
+        bold: negrito,
+        fontFace: 'Arial',
+        fontSize: tam,
+        valign: 'middle',
+        align: alin,
+        margin: [1, 5, 1, 5],
+        border: { type: 'solid', pt: 0.5, color: C.CINZA },
+      },
+    })
+    const moeda = (v: number | null) => (v === null ? '' : v ? fmtMoeda(v, 0) : 'R$ -')
+    const metas: Cel[][] = [
+      [
+        cel(''),
+        cel('META DE VENDAS', { negrito: true, alin: 'center', tam: 11 }),
+        cel(''),
+        ...p.meses.map(() => cel('')),
+      ],
+      ...METAS_PROJECAO.map(([k, nome]) => {
+        const fundo = CORES_PROJECAO[k]
+        const cor = k === 'vender_mais' ? 'FFFFFF' : C.GRAFITE
+        return [
+          cel(''),
+          cel(nome, { negrito: true, alin: 'center', fundo, cor }),
+          cel('', { fundo, cor }),
+          ...p.metas.map((m) => cel(moeda(m[k]), { negrito: true, alin: 'right', fundo, cor })),
+        ]
+      }),
+      [
+        cel('Rank', { negrito: true, alin: 'center', fundo: C.AZUL, cor: 'FFFFFF' }),
+        cel('BLOCOS / PISOS INTERTRAVADOS', { negrito: true, fundo: C.AZUL, cor: 'FFFFFF' }),
+        cel('VALOR TOTAL PEDIDO', { negrito: true, alin: 'right', fundo: C.AZUL, cor: 'FFFFFF' }),
+        ...p.rotulos.map((r) =>
+          cel(r, { negrito: true, alin: 'center', fundo: CORES_PROJECAO.mes, cor: 'FFFFFF' })
+        ),
+      ],
+    ]
+    const paginas = grupos.length
+    for (let pg = 0; pg < paginas; pg++) {
+      const s = this.slide(
+        paginas > 1
+          ? `Meta de vendas e projeção (${pg + 1}/${paginas})`
+          : 'Meta de vendas e projeção',
+        ''
+      )
+      const clientes = grupos[pg].map((l, i) => {
+        const fundo = i % 2 ? C.CINZA_CLARO : 'FFFFFF'
+        return [
+          cel(String(l.rank), { alin: 'right', fundo }),
+          cel(caber(l.nome, larg[1], fonte), { fundo }),
+          cel(
+            l.valor_total === null
+              ? ''
+              : fmtMoeda(l.valor_total, Number.isInteger(l.valor_total) ? 0 : 2),
+            { alin: 'right', fundo }
+          ),
+          ...l.meses.map((v) => cel(moeda(v), { alin: 'right', fundo })),
+        ]
+      })
+      const totais: Cel[][] =
+        pg === paginas - 1
+          ? [
+              [
+                cel(''),
+                cel('VENDAS PROJETADAS', { negrito: true }),
+                cel(''),
+                ...p.projetadas.map((v) => cel(moeda(v), { negrito: true, alin: 'right' })),
+              ],
+              [
+                cel(''),
+                cel('VENDAS CONCRETIZADAS', { negrito: true }),
+                cel(fmtMoeda(p.concretizadas, 0), { negrito: true, alin: 'right' }),
+                ...p.meses.map(() => cel('')),
+              ],
+            ]
+          : []
+      s.addTable([...metas, ...clientes, ...totais], {
+        x: pol(M),
+        y: pol(78),
+        w: pol(larg.reduce((a, b) => a + b, 0)),
+        colW: larg.map(pol),
+        rowH: pol(18),
+        autoPage: false,
+      })
+    }
+  }
+
   /** Top 10 com o valor de A, de B, a diferença e a variação. */
   ranking(s: Slide, t: Tabela, chave: 'Cliente' | 'Produto', extras: string[], larguras: number[]) {
     // clientes: coluna ABC (curva da base inteira) depois do nome
@@ -1199,8 +1384,12 @@ class Deck {
   }
 }
 
-export async function gerarPpt(rel: Relatorio): Promise<Uint8Array> {
-  const d = new Deck(rel)
+/** `projecao`: quadro de metas e projeção (mês atual e seguinte); sem ele, o slide não entra. */
+export async function gerarPpt(
+  rel: Relatorio,
+  projecao: ResultadoProjecao | null = null
+): Promise<Uint8Array> {
+  const d = new Deck(rel, projecao)
   if (rel.filtro === TODOS) d.deckCompleto()
   else d.deckFoco()
   const out = await d.pptx.write({ outputType: 'nodebuffer' })
@@ -1259,5 +1448,5 @@ async function ajustarPacote(pptx: Uint8Array, graficos: DadosGrafico[]): Promis
 /** 'Relatorio_semana_2026-10-12_a_2026-10-16.pptx' (com o status quando focado). */
 export function nomeArquivo(rel: Relatorio, ext = 'pptx') {
   const foco = rel.filtro === TODOS ? '' : norm(rel.filtro).replaceAll(' ', '-') + '_'
-  return `Relatorio_${foco}${norm(rel.p.tipo)}_${rel.p.inicio}_a_${rel.p.fim}.${ext}`
+  return `Relatorio_${foco}${norm(rel.p.tipo).replaceAll(' ', '-')}_${rel.p.inicio}_a_${rel.p.fim}.${ext}`
 }

@@ -97,8 +97,6 @@ export type PropostaFeedback = {
 export type RespostaRelatorio = {
   a: PeriodoJson
   b: PeriodoJson | null
-  /** Base inteira: período de Pedidos, rankings, Provisão e Detalhamento (sem comparação). */
-  todo: PeriodoJson
   modo: ModoComparacao
   filtro: Filtro
   nomeA: string
@@ -123,7 +121,9 @@ export type RespostaRelatorio = {
   pedidos: { tabela: Tabela; explicacao: string }
   detalhamento: { titulo: string; tabela: Tabela; nota?: string }[]
   feedback: PropostaFeedback[]
-  /** Provisão x realizado (faturamento) dos clientes na base inteira. */
+  /** Pedidos em aberto (contratos) e quanto já foi entregue, na posição do fim do período A. */
+  acompanhamento: import('./acompanhamento').ResultadoAcompanhamento
+  /** Provisão x realizado (faturamento) dos clientes no período A. */
   provisao: import('./provisao').ResultadoProvisao
 }
 
@@ -213,3 +213,24 @@ export type LancamentoProvisao = { mes: string; valor: number | null }
 export type PedidoProvisoes = { ano: number; meses: LancamentoProvisao[] }
 /** POST /api/banco/provisoes-lote: grava os meses preenchidos para vários clientes. */
 export type PedidoProvisaoLote = { clientes: string[]; meses: LancamentoProvisao[] }
+
+/** Quadro de projeção de vendas. GET /api/projecao */
+export type { LinhaProjecao, MetaDoMes, ResultadoProjecao } from './projecao'
+/** PUT /api/projecao/metas: as três metas do mês (todas null = apaga o mês). */
+export type PedidoMetas = {
+  mes: string
+  vender_mais: number | null
+  meta_mensal: number | null
+  parar_vender: number | null
+}
+/** PUT /api/projecao/valor-total: valor total do pedido do cliente (null = apaga). */
+export type PedidoValorTotal = { cliente: string; valor: number | null }
+
+/** Acompanhamento de pedidos (aba Acompanhamento). */
+export type {
+  Baixa,
+  ItemAcompanhado,
+  PedidoAcompanhado,
+  ResultadoAcompanhamento,
+  Situacao,
+} from './acompanhamento'

@@ -17,10 +17,12 @@ import { Select } from '@/atomic/base-components/select'
 import { PageActionSearch } from '@/atomic/components/page-actions/page-action-search'
 
 import { TextoStatus } from '@/atomic/features/relatorio-filtros/components/texto-status'
+import { CabecalhoOrdenavel } from '@/atomic/features/relatorio-tabela/components/cabecalho-ordenavel'
 
 import { dateParaDia, diaParaDate } from '@/atomic/features/relatorio-filtros/helpers/datas'
 
 import { useEstadoBaseQuery } from '@/atomic/features/relatorio-consulta/hooks/queries/use-relatorio-queries'
+import { useOrdenacao } from '@/atomic/features/relatorio-tabela/hooks/use-ordenacao'
 
 import { cn } from '@/lib/tailwind/utils'
 
@@ -28,6 +30,23 @@ import { useSalvarFeedbackMutation } from '../hooks/queries/use-relatorio-feedba
 
 const NENHUM = '__nenhum'
 type Campo = keyof EdicaoFeedback
+
+/** Colunas e o valor usado na ordenação (o salvo: a linha não pula enquanto se edita). */
+const COLUNAS: [string, (p: PropostaFeedback) => string | number | null][] = [
+  ['Proposta', (p) => Number(p.proposta) || p.proposta],
+  ['Cliente', (p) => p.cliente],
+  ['Vendedor', (p) => p.vendedor],
+  ['Valor', (p) => p.valor],
+  ['Status', (p) => p.status],
+  ['Criação', (p) => p.data],
+  ['Aprovação', (p) => p.dt_aprovacao],
+  ['Cancelamento', (p) => p.dt_cancelamento],
+  ['Pedido ligado', (p) => Number(p.pedido) || p.pedido],
+  ['Nota', (p) => Number(p.nf) || p.nf],
+  ['Motivo', (p) => p.motivo],
+  ['Comentário / feedback', (p) => p.comentario],
+]
+const ACESSORES = Object.fromEntries(COLUNAS)
 
 /**
  * Aba Feedback: motivo do cancelamento e acompanhamento pós-venda; também corrige datas
@@ -54,6 +73,7 @@ export function RelatorioFeedback({ rel }: { rel: RespostaRelatorio }) {
       )
     )
   }, [rel.feedback, busca])
+  const { ordenados, ordem, alternar } = useOrdenacao(lista, ACESSORES)
 
   const onSalvar = () =>
     salvar.mutate(
@@ -98,28 +118,22 @@ export function RelatorioFeedback({ rel }: { rel: RespostaRelatorio }) {
         <table className="min-w-full border-separate border-spacing-0">
           <thead>
             <tr>
-              {[
-                'Proposta',
-                'Cliente',
-                'Vendedor',
-                'Valor',
-                'Status',
-                'Criação',
-                'Aprovação',
-                'Cancelamento',
-                'Pedido ligado',
-                'Nota',
-                'Motivo',
-                'Comentário / feedback',
-              ].map((c) => (
-                <th key={c} className={cn(th, c === 'Valor' && 'text-right')}>
-                  {c}
+              {COLUNAS.map(([c]) => (
+                <th key={c} className={th}>
+                  <CabecalhoOrdenavel
+                    coluna={c}
+                    ordem={ordem}
+                    onOrdenar={alternar}
+                    direita={c === 'Valor'}
+                  >
+                    {c}
+                  </CabecalhoOrdenavel>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {lista.map((p) => (
+            {ordenados.map((p) => (
               <tr key={p.proposta} className={cn(edicoes[p.proposta] && 'bg-primary/5')}>
                 <td className={td}>{p.proposta}</td>
                 <td className={cn(td, 'max-w-56 truncate')} title={p.cliente}>

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 
 import type { ClienteIndicadores } from '@server/relatorio/api-tipos'
 import { fmtData, fmtMoeda, fmtNum, fmtPct, norm } from '@server/relatorio/utils'
-import { ArrowDown, Minus, TrendingDown, TrendingUp } from 'lucide-react'
+import { Minus, TrendingDown, TrendingUp } from 'lucide-react'
 
 import { Loading } from '@/atomic/base-components/loading'
 import { ToggleGroup, ToggleGroupItem } from '@/atomic/base-components/toggle-group'
@@ -11,15 +11,41 @@ import { PageActionSearch } from '@/atomic/components/page-actions/page-action-s
 
 import { SeloAbc } from '@/atomic/features/banco-dados/components/selo-abc'
 import { BancoExportar } from '@/atomic/features/banco-tabelas/components/banco-exportar'
+import { CabecalhoOrdenavel } from '@/atomic/features/relatorio-tabela/components/cabecalho-ordenavel'
 import { TabelaVirtual } from '@/atomic/features/relatorio-tabela/components/tabela-virtual'
 
 import { COR_ABC } from '@/atomic/features/banco-dados/helpers/cor-abc'
 
 import { useClientesQuery } from '@/atomic/features/banco-dados/hooks/queries/use-banco-queries'
+import {
+  useOrdenacao,
+  type ValorOrdenavel,
+} from '@/atomic/features/relatorio-tabela/hooks/use-ordenacao'
 
 import { cn } from '@/lib/tailwind/utils'
 
-type Ordem = 'faturamento' | 'potencial' | 'dias_sem_comprar' | 'nome'
+const ORDEM_ABC: Record<string, number> = { A: 1, B: 2, C: 3 }
+
+/** Colunas da tabela: título, valor usado na ordenação e alinhamento à direita. */
+const COLUNAS_TABELA: [string, (c: ClienteIndicadores) => ValorOrdenavel, boolean][] = [
+  ['Cliente', (c) => c.nome, false],
+  ['Cidade', (c) => [c.cidade, c.uf].filter(Boolean).join('/'), false],
+  ['ABC', (c) => ORDEM_ABC[c.abc] ?? null, false],
+  ['Tendência', (c) => (c.tendencia === '-' ? null : c.tendencia), false],
+  ['Faturamento', (c) => c.faturamento, true],
+  ['Notas', (c) => c.notas, true],
+  ['Ticket médio', (c) => (c.notas ? c.ticket_medio : null), true],
+  ['Última compra', (c) => c.ultima_compra, false],
+  ['Dias sem comprar', (c) => c.dias_sem_comprar, true],
+  ['Conversão', (c) => c.conversao, true],
+  ['Potencial', (c) => c.potencial, true],
+  ['Provisão (mês atual)', (c) => c.provisao_mes || null, true],
+  ['Grupo econômico', (c) => c.grupo, false],
+  ['Segmento', (c) => c.segmento, false],
+  ['Situação', (c) => c.situacao, false],
+  ['Observações', (c) => c.observacoes, false],
+]
+const ACESSORES = Object.fromEntries(COLUNAS_TABELA.map(([t, f]) => [t, f]))
 /** Situação do cliente para exibição (a aba é só leitura). */
 const SITUACAO: Record<string, string> = { ativo: 'Ativo', inativo: 'Inativo' }
 /** Colunas do .xlsx da aba Clientes (as chaves definem o formato: R$, %, datas). */
@@ -62,30 +88,6 @@ function IconeTendencia({ t }: { t: ClienteIndicadores['tendencia'] }) {
   return null
 }
 
-function OrdemBtn({
-  k,
-  ordenar,
-  children,
-}: {
-  k: Ordem
-  ordenar: { atual: Ordem; mudar: (o: Ordem) => void }
-  children: string
-}) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        'inline-flex items-center gap-1',
-        ordenar.atual === k && 'text-primary dark:text-foreground'
-      )}
-      onClick={() => ordenar.mudar(k)}
-    >
-      {children}
-      {ordenar.atual === k && <ArrowDown className="size-3" />}
-    </button>
-  )
-}
-
 /**
  * Clientes (só leitura): cadastro (dados + contatos do Bling), grupo econômico, segmento,
  * situação e observações, e o estimador Curva ABC / potencial por grupo econômico. Exporta a
@@ -95,7 +97,6 @@ export function BancoClientes() {
   const { data, isPending } = useClientesQuery()
   const [busca, setBusca] = useState('')
   const [abc, setAbc] = useState<'Todos' | 'A' | 'B' | 'C' | '-'>('Todos')
-  const [ordem, setOrdem] = useState<Ordem>('faturamento')
 
   const linhas = useMemo(() => {
     const termo = norm(busca)
@@ -107,16 +108,9 @@ export function BancoClientes() {
             norm(v).includes(termo)
           ))
     )
-    const chave: Record<Ordem, (c: ClienteIndicadores) => number | string> = {
-      faturamento: (c) => -c.faturamento,
-      potencial: (c) => -c.potencial,
-      dias_sem_comprar: (c) => -(c.dias_sem_comprar ?? -1),
-      nome: (c) => norm(c.nome),
-    }
-    return [...ls].sort((x, y) =>
-      chave[ordem](x) < chave[ordem](y) ? -1 : chave[ordem](x) > chave[ordem](y) ? 1 : 0
-    )
-  }, [data, busca, abc, ordem])
+    return ls // ordem do servidor: maior faturamento primeiro
+  }, [data, busca, abc])
+  const { ordenados, ordem, alternar } = useOrdenacao(linhas, ACESSORES)
 
   if (isPending || !data) return <Loading text="" className="h-48" />
   const { resumo } = data
@@ -125,7 +119,6 @@ export function BancoClientes() {
     'sticky top-0 z-10 bg-background border-b px-2 py-2 text-left text-xs font-medium whitespace-nowrap'
   const td = 'border-b px-2 py-1 text-xs align-middle'
   const num = 'text-right tabular-nums whitespace-nowrap'
-  const ordenar = { atual: ordem, mudar: setOrdem }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -198,7 +191,7 @@ export function BancoClientes() {
             nome: 'Clientes',
             colunas: COLUNAS_EXPORTACAO,
             // as linhas da tela (busca, filtro ABC e ordem)
-            linhas: linhas.map((c) => ({
+            linhas: ordenados.map((c) => ({
               ...Object.fromEntries(COLUNAS_EXPORTACAO.map(({ chave }) => [chave, null])),
               nome: c.nome,
               cnpj: c.cnpj ? documento(c.cnpj) : '',
@@ -227,43 +220,23 @@ export function BancoClientes() {
 
       {linhas.length ? (
         <TabelaVirtual
-          dados={linhas}
+          dados={ordenados}
           chave={(c) => c.chave}
           larguras={LARGURAS}
           cabecalho={() => (
             <tr>
-              <th className={th}>
-                <OrdemBtn ordenar={ordenar} k="nome">
-                  Cliente
-                </OrdemBtn>
-              </th>
-              <th className={th}>Cidade</th>
-              <th className={th}>ABC</th>
-              <th className={th}>Tendência</th>
-              <th className={cn(th, 'text-right')}>
-                <OrdemBtn ordenar={ordenar} k="faturamento">
-                  Faturamento
-                </OrdemBtn>
-              </th>
-              <th className={cn(th, 'text-right')}>Notas</th>
-              <th className={cn(th, 'text-right')}>Ticket médio</th>
-              <th className={th}>Última compra</th>
-              <th className={cn(th, 'text-right')}>
-                <OrdemBtn ordenar={ordenar} k="dias_sem_comprar">
-                  Dias sem comprar
-                </OrdemBtn>
-              </th>
-              <th className={cn(th, 'text-right')}>Conversão</th>
-              <th className={cn(th, 'text-right')}>
-                <OrdemBtn ordenar={ordenar} k="potencial">
-                  Potencial
-                </OrdemBtn>
-              </th>
-              <th className={cn(th, 'text-right')}>Provisão (mês atual)</th>
-              <th className={th}>Grupo econômico</th>
-              <th className={th}>Segmento</th>
-              <th className={th}>Situação</th>
-              <th className={th}>Observações</th>
+              {COLUNAS_TABELA.map(([t, , direita]) => (
+                <th key={t} className={cn(th, direita && 'text-right')}>
+                  <CabecalhoOrdenavel
+                    coluna={t}
+                    ordem={ordem}
+                    onOrdenar={alternar}
+                    direita={direita}
+                  >
+                    {t}
+                  </CabecalhoOrdenavel>
+                </th>
+              ))}
             </tr>
           )}
           linha={(c) => (

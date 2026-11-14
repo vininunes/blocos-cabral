@@ -13,9 +13,14 @@ import { PageActionSearch } from '@/atomic/components/page-actions/page-action-s
 
 import { BancoProvisaoDialog } from '@/atomic/features/banco-clientes/components/banco-provisao-dialog'
 import { SeloAbc } from '@/atomic/features/banco-dados/components/selo-abc'
+import { CabecalhoOrdenavel } from '@/atomic/features/relatorio-tabela/components/cabecalho-ordenavel'
 import { TabelaVirtual } from '@/atomic/features/relatorio-tabela/components/tabela-virtual'
 
 import { useClientesQuery } from '@/atomic/features/banco-dados/hooks/queries/use-banco-queries'
+import {
+  useOrdenacao,
+  type ValorOrdenavel,
+} from '@/atomic/features/relatorio-tabela/hooks/use-ordenacao'
 
 import { cn } from '@/lib/tailwind/utils'
 
@@ -26,6 +31,21 @@ type FiltroAbc = 'Todos' | 'A' | 'B' | 'C' | '-'
 const LARGURAS = [44, 340, 180, 70, 150, 80, 130, 120, 160, 170]
 
 type FiltroProvisao = 'Todos' | 'Com' | 'Sem'
+
+const ORDEM_ABC: Record<string, number> = { A: 1, B: 2, C: 3 }
+/** Colunas ordenáveis (depois do checkbox): título, valor e alinhamento à direita. */
+const COLUNAS: [string, (c: ClienteIndicadores) => ValorOrdenavel, boolean][] = [
+  ['Cliente', (c) => c.nome, false],
+  ['Cidade', (c) => [c.cidade, c.uf].filter(Boolean).join('/'), false],
+  ['ABC', (c) => ORDEM_ABC[c.abc] ?? null, false],
+  ['Faturamento', (c) => c.faturamento, true],
+  ['Notas', (c) => c.notas, true],
+  ['Ticket médio', (c) => (c.notas ? c.ticket_medio : null), true],
+  ['Última compra', (c) => c.ultima_compra, false],
+  ['Segmento', (c) => c.segmento, false],
+  ['Provisão (mês atual)', (c) => c.provisao_mes || null, true],
+]
+const ACESSORES = Object.fromEntries(COLUNAS.map(([t, f]) => [t, f]))
 
 const documento = (d: string) =>
   d.length === 14
@@ -57,6 +77,7 @@ export function RelatorioProvisaoClientes() {
           [c.nome, c.fantasia, c.cnpj, c.cidade, c.grupo].some((v) => norm(v).includes(termo)))
     )
   }, [data, busca, abc, comProvisao])
+  const { ordenados, ordem, alternar: ordenar } = useOrdenacao(linhas, ACESSORES)
 
   if (isPending || !data) return <Loading text="" className="h-48" />
 
@@ -145,7 +166,7 @@ export function RelatorioProvisaoClientes() {
 
       {linhas.length ? (
         <TabelaVirtual
-          dados={linhas}
+          dados={ordenados}
           chave={(c) => c.chave}
           larguras={LARGURAS}
           linhaClasse={(c) => (selecao.has(c.chave) ? 'bg-primary/5' : undefined)}
@@ -158,15 +179,18 @@ export function RelatorioProvisaoClientes() {
                   onCheckedChange={(v) => alternarVisiveis(v === true)}
                 />
               </th>
-              <th className={th}>Cliente</th>
-              <th className={th}>Cidade</th>
-              <th className={th}>ABC</th>
-              <th className={cn(th, 'text-right')}>Faturamento</th>
-              <th className={cn(th, 'text-right')}>Notas</th>
-              <th className={cn(th, 'text-right')}>Ticket médio</th>
-              <th className={th}>Última compra</th>
-              <th className={th}>Segmento</th>
-              <th className={cn(th, 'text-right')}>Provisão (mês atual)</th>
+              {COLUNAS.map(([t, , direita]) => (
+                <th key={t} className={cn(th, direita && 'text-right')}>
+                  <CabecalhoOrdenavel
+                    coluna={t}
+                    ordem={ordem}
+                    onOrdenar={ordenar}
+                    direita={direita}
+                  >
+                    {t}
+                  </CabecalhoOrdenavel>
+                </th>
+              ))}
             </tr>
           )}
           linha={(c) => {

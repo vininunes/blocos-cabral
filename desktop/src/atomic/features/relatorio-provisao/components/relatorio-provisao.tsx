@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 
 import type { RespostaRelatorio } from '@server/relatorio/api-tipos'
 import { fmtMoeda, fmtNum, fmtPct } from '@server/relatorio/utils'
-import { LineChart, Target } from 'lucide-react'
+import { CalendarRange, LineChart, Target } from 'lucide-react'
 
 import { Button } from '@/atomic/base-components/button'
 
@@ -22,6 +22,7 @@ import { filtrarTabela } from '@/atomic/features/relatorio-tabela/helpers/filtra
 import { cn } from '@/lib/tailwind/utils'
 
 import { GraficoProvisaoClientes, type ItemProvisao } from './grafico-provisao-clientes'
+import { RelatorioProjecao } from './relatorio-projecao'
 import { RelatorioProvisaoClientes } from './relatorio-provisao-clientes'
 
 const eixoMil = (v: number) => `R$ ${fmtNum(v / 1000)} mil`
@@ -62,12 +63,12 @@ function Cartao({
  * dividido pelos dias úteis do mês) contra o faturamento (notas) desses clientes.
  */
 export function RelatorioProvisao({ rel }: { rel: RespostaRelatorio }) {
-  const [vista, setVista] = useState<'acompanhamento' | 'lancar'>(
+  const [vista, setVista] = useState<'acompanhamento' | 'projecao' | 'lancar'>(
     rel.provisao.clientesComProvisao ? 'acompanhamento' : 'lancar'
   )
   const [busca, setBusca] = useState('')
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div className={cn('flex flex-1 flex-col gap-3', vista === 'lancar' && 'min-h-0')}>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <PageActionTabs
           tabs={[
@@ -75,6 +76,11 @@ export function RelatorioProvisao({ rel }: { rel: RespostaRelatorio }) {
               value: 'acompanhamento',
               label: 'Acompanhamento',
               icon: <LineChart className="size-3.5" />,
+            },
+            {
+              value: 'projecao',
+              label: 'Projeção',
+              icon: <CalendarRange className="size-3.5" />,
             },
             { value: 'lancar', label: 'Lançar provisão', icon: <Target className="size-3.5" /> },
           ]}
@@ -92,6 +98,8 @@ export function RelatorioProvisao({ rel }: { rel: RespostaRelatorio }) {
       </div>
       {vista === 'lancar' ? (
         <RelatorioProvisaoClientes />
+      ) : vista === 'projecao' ? (
+        <RelatorioProjecao onLancar={() => setVista('lancar')} />
       ) : (
         <Acompanhamento rel={rel} busca={busca} onLancar={() => setVista('lancar')} />
       )}
@@ -157,7 +165,7 @@ function Acompanhamento({
 
   const atingido = p.atingido
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div className="flex flex-1 flex-col gap-3 pb-2">
       <div className="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-5">
         <Cartao
           rotulo="Provisionado"
@@ -183,7 +191,7 @@ function Acompanhamento({
         <Cartao
           rotulo="Faturamento total"
           valor={fmtMoeda(p.realizado + p.realizadoSemProvisao)}
-          detalhe={rel.todo.rotulo}
+          detalhe={rel.a.rotulo}
         />
       </div>
       <div className="grid shrink-0 grid-cols-1 gap-3 xl:grid-cols-2">
@@ -213,6 +221,8 @@ function Acompanhamento({
       <RelatorioTabela
         tabela={tabela}
         preencher
+        // em telas baixas não encolhe: a página rola e a tabela continua legível
+        className="min-h-[420px]"
         vazio={busca ? 'Nada encontrado para a busca.' : 'Sem provisão nem faturamento no período.'}
       />
     </div>

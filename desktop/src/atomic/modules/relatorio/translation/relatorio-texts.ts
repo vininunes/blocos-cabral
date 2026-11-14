@@ -5,6 +5,7 @@ export const relatorioTextsPTBR = {
       indicadores: 'Indicadores',
       'visao-geral': 'Visão geral',
       pedidos: 'Pedidos',
+      acompanhamento: 'Acompanhamento',
       vendedores: 'Vendedores',
       clientes: 'Clientes',
       produtos: 'Produtos',

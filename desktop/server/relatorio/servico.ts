@@ -4,6 +4,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { calcularAcompanhamento, tabelasAcompanhamento } from './acompanhamento'
 import type {
   ArquivoGerado,
   ConsultaRelatorio,
@@ -17,8 +18,10 @@ import type {
   PedidoExportarTabela,
   PedidoFeedback,
   PedidoImportacao,
+  PedidoMetas,
   PedidoProvisaoLote,
   PedidoProvisoes,
+  PedidoValorTotal,
   PropostaFeedback,
   RespostaRelatorio,
   RespostaVerificacao,
@@ -31,9 +34,10 @@ import { agora, dia, type Dia } from './datas'
 import { detectarTipo } from './leitores'
 import { DIMENSOES, Relatorio, TODOS, type Dimensao, type Tabela } from './metricas'
 import { migrarBaseAntiga, type ResultadoMigracao } from './migracao'
-import { comparacao, Periodo, SEM_COMPARACAO } from './periodo'
+import { comparacao, Periodo, SEM_COMPARACAO, TODO_PERIODO } from './periodo'
 import { COLUNAS_BASE, excelRelatorio, exportarBase, exportarTabela } from './planilha'
 import { gerarPpt, nomeArquivo } from './ppt'
+import { calcularProjecao } from './projecao'
 import { calcularProvisao } from './provisao'
 import type { TipoArquivo } from './tipos'
 import { fmtMoeda } from './utils'
@@ -108,12 +112,19 @@ export function criarServico(
   }
 
   function periodoDe(q: ConsultaRelatorio) {
+    if (q.tipo === TODO_PERIODO) {
+      // do primeiro ao último dia com dados (base vazia: o dia da âncora)
+      const [ini, fim] = base.extensao()
+      return Periodo.de(TODO_PERIODO, q.ancora, ini ?? q.ancora, fim ?? q.ancora)
+    }
     return q.tipo === 'Personalizado'
       ? Periodo.de('Personalizado', q.ancora, q.de ?? q.ancora, q.ate ?? q.ancora)
       : Periodo.de(q.tipo, q.ancora)
   }
 
+  /** Setas ‹ ›: mesmo tipo de período, deslocado (Todo o período não se move). */
   function navegar(q: ConsultaRelatorio, n: number): Navegacao {
+    if (q.tipo === TODO_PERIODO) return { ancora: q.ancora, de: q.de ?? null, ate: q.ate ?? null }
     const p = periodoDe(q).deslocar(n)
     return q.tipo === 'Personalizado'
       ? { ancora: q.ancora, de: p.inicio, ate: p.fim }
@@ -122,8 +133,10 @@ export function criarServico(
 
   function relatorioDe(q: ConsultaRelatorio) {
     const ultimoDia = base.cobertura()[1] ?? dataMaisRecente()
-    const [a, b] = comparacao(periodoDe(q), q.modo, ultimoDia, q.cmpDe, q.cmpAte)
-    return { a, b, rel: new Relatorio(base, a, q.filtro, b, q.modo) }
+    // Todo o período não tem período anterior: sempre sem comparação
+    const modo = q.tipo === TODO_PERIODO ? SEM_COMPARACAO : q.modo
+    const [a, b] = comparacao(periodoDe(q), modo, ultimoDia, q.cmpDe, q.cmpAte)
+    return { a, b, modo, rel: new Relatorio(base, a, q.filtro, b, modo) }
   }
 
   /** Grava em saida/ e devolve o nome e o caminho do arquivo. */
@@ -137,8 +150,20 @@ export function criarServico(
   async function exportar(tipo: 'ppt' | 'excel', q: ConsultaRelatorio) {
     const { rel } = relatorioDe(q)
     return tipo === 'ppt'
-      ? gravarSaida(nomeArquivo(rel, 'pptx'), await gerarPpt(rel))
-      : gravarSaida(nomeArquivo(rel, 'xlsx'), await excelRelatorio(rel.tabelasExcel()))
+      ? gravarSaida(nomeArquivo(rel, 'pptx'), await gerarPpt(rel, calcularProjecao(base, hoje())))
+      : gravarSaida(
+          nomeArquivo(rel, 'xlsx'),
+          await excelRelatorio(
+            { ...rel.tabelasExcel(), ...abasAcompanhamento(rel.p.fim) },
+            calcularProjecao(base, hoje())
+          )
+        )
+  }
+
+  /** Abas do acompanhamento de pedidos no Excel (só quando há pedidos em aberto). */
+  function abasAcompanhamento(fim: Dia) {
+    const ac = calcularAcompanhamento(base, fim)
+    return ac.pedidos.length ? tabelasAcompanhamento(ac) : {}
   }
 
   /** Carteira em processo no fim do período da consulta: por cliente e as propostas. */
@@ -178,11 +203,8 @@ export function criarServico(
   }
 
   function relatorio(q: ConsultaRelatorio): RespostaRelatorio {
-    const { a, b, rel: relPeriodo } = relatorioDe(q)
-    // Pedidos, rankings, provisão e detalhamento: a base inteira, sem comparação
-    const [ini, fim] = base.extensao()
-    const todo = ini && fim ? new Periodo('Personalizado', ini, fim) : a
-    const rel = new Relatorio(base, todo, q.filtro, null, SEM_COMPARACAO)
+    // todas as abas no período escolhido (Todo o período = a base inteira)
+    const { a, b, modo, rel } = relatorioDe(q)
     const kpi = (k: ReturnType<Relatorio['kpis']>[number]) => k.toJSON() as KpiJson
     const series = q.filtro === TODOS ? [C.FATURADO, C.ENTREGUE, C.APROVADO] : [q.filtro]
     const ren = (t: Tabela) => rel.renomear(t)
@@ -225,7 +247,7 @@ export function criarServico(
         detalhamento.push({ titulo: 'Aguardando nota', tabela: ag, nota: notaAguardando })
     }
 
-    const feedback: PropostaFeedback[] = relPeriodo.propostasFiltradas().map((p) => ({
+    const feedback: PropostaFeedback[] = rel.propostasFiltradas().map((p) => ({
       proposta: p.proposta,
       cliente: p.cliente,
       vendedor: p.vendedor,
@@ -240,31 +262,29 @@ export function criarServico(
       comentario: p.comentario,
     }))
 
-    const provisao = calcularProvisao(base, todo, base.cobertura()[1])
+    const provisao = calcularProvisao(base, a, base.cobertura()[1])
+    const acompanhamento = calcularAcompanhamento(base, a.fim)
 
     return {
       a: a.toJSON(),
       b: b?.toJSON() ?? null,
-      modo: q.modo,
+      modo,
       filtro: q.filtro,
-      todo: todo.toJSON(),
-      nomeA: relPeriodo.nomeA,
-      nomeB: relPeriodo.nomeB,
-      compara: relPeriodo.compara,
-      coberturaB: relPeriodo.coberturaB,
+      nomeA: rel.nomeA,
+      nomeB: rel.nomeB,
+      compara: rel.compara,
+      coberturaB: rel.coberturaB,
       cobertura: base.cobertura(),
       navegacao: { anterior: navegar(q, -1), proximo: navegar(q, 1) },
-      grupos: relPeriodo.grupos().map(([titulo, ks]) => ({ titulo, kpis: ks.map(kpi) })),
-      basesIndicadores: relPeriodo.basesIndicadores(),
-      acumulado: relPeriodo.compara
-        ? Object.fromEntries(series.map((s) => [s, relPeriodo.acumulado(s)]))
-        : {},
+      grupos: rel.grupos().map(([titulo, ks]) => ({ titulo, kpis: ks.map(kpi) })),
+      basesIndicadores: rel.basesIndicadores(),
+      acumulado: rel.compara ? Object.fromEntries(series.map((s) => [s, rel.acumulado(s)])) : {},
       variacoes: Object.fromEntries(
-        (Object.keys(DIMENSOES) as Dimensao[]).map((d) => [d, relPeriodo.variacoes(d, 5)])
+        (Object.keys(DIMENSOES) as Dimensao[]).map((d) => [d, rel.variacoes(d, 5)])
       ) as Record<Dimensao, Tabela>,
-      evolucao: relPeriodo.evolucao(),
-      funil: q.filtro === TODOS ? relPeriodo.funil() : null,
-      motivos: q.filtro === C.CANCELADO ? relPeriodo.motivos() : null,
+      evolucao: rel.evolucao(),
+      funil: q.filtro === TODOS ? rel.funil() : null,
+      motivos: q.filtro === C.CANCELADO ? rel.motivos() : null,
       vendedores: ren(rel.vendedores()),
       clientes: ren(rel.clientes(Infinity)), // todos: a aba tem busca
       produtos: ren(rel.produtos(50)),
@@ -273,6 +293,7 @@ export function criarServico(
       detalhamento,
       feedback,
       provisao,
+      acompanhamento,
     }
   }
 
@@ -392,6 +413,24 @@ export function criarServico(
     return r
   }
 
+  // ------------------------------------------------------------ projeção
+
+  function projecao() {
+    return calcularProjecao(base, hoje())
+  }
+
+  function salvarMetas(pedido: PedidoMetas) {
+    base.salvarMeta(String(pedido.mes ?? ''), pedido)
+    base.salvar()
+    return projecao()
+  }
+
+  function salvarValorTotal(pedido: PedidoValorTotal) {
+    base.salvarValorTotalPedido(String(pedido.cliente ?? ''), pedido.valor ?? null)
+    base.salvar()
+    return projecao()
+  }
+
   async function desfazerImportacao(hash: string) {
     const r = await base.desfazerImportacao(hash, pastas.entrada)
     base.salvar()
@@ -404,6 +443,9 @@ export function criarServico(
     provisoes,
     salvarProvisoes,
     lancarProvisaoEmLote,
+    projecao,
+    salvarMetas,
+    salvarValorTotal,
     clientes: () => indicadoresClientes(base),
     salvarClientes,
     desfazerImportacao,

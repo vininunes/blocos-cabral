@@ -20,6 +20,9 @@
 //   GET  /api/banco/provisoes/:cliente  provisão do cliente (total R$ por mês)
 //   PUT  /api/banco/provisoes/:cliente  troca os 12 meses de um ano da provisão do cliente
 //   POST /api/banco/provisoes-lote      meses preenchidos da provisão para vários clientes
+//   GET  /api/projecao                  quadro de projeção (mês atual e seguinte, metas, valor total)
+//   PUT  /api/projecao/metas            metas de vendas de um mês
+//   PUT  /api/projecao/valor-total      valor total do pedido de um cliente
 //   GET  /api/saida/:nome           baixa um arquivo de saida/
 //   POST /api/saida/:nome/abrir     abre o arquivo no programa padrão (?mostrar=1: mostra na pasta)
 import type { Plugin } from 'vite'
@@ -34,8 +37,10 @@ import type {
   PedidoExportarTabela,
   PedidoFeedback,
   PedidoImportacao,
+  PedidoMetas,
   PedidoProvisaoLote,
   PedidoProvisoes,
+  PedidoValorTotal,
   TabelaBanco,
 } from './relatorio/api-tipos'
 import { criarServico } from './relatorio/servico'
@@ -153,6 +158,24 @@ export function createRelatorioApi(options: RelatorioApiOptions) {
           res,
           200,
           await exclusivo('Gravação da provisão', () => servico.lancarProvisaoEmLote(pedido))
+        )
+      }
+      case 'GET /api/projecao':
+        return sendJson(res, 200, servico.projecao())
+      case 'PUT /api/projecao/metas': {
+        const pedido = await json<PedidoMetas>(req)
+        return sendJson(
+          res,
+          200,
+          await exclusivo('Gravação das metas', () => servico.salvarMetas(pedido))
+        )
+      }
+      case 'PUT /api/projecao/valor-total': {
+        const pedido = await json<PedidoValorTotal>(req)
+        return sendJson(
+          res,
+          200,
+          await exclusivo('Gravação do valor total', () => servico.salvarValorTotal(pedido))
         )
       }
       case 'POST /api/exportar/carteira': {

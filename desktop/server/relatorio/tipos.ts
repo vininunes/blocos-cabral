@@ -154,6 +154,25 @@ export type Provisao = {
   atualizado_em: DataHora
 }
 
+/**
+ * Metas de vendas do mês (R$): referências do quadro de projeção. Mês sem metas usa as do último
+ * mês lançado antes dele.
+ */
+export type MetaVendas = {
+  mes: string // 'AAAA-MM'
+  vender_mais: number | null
+  meta_mensal: number | null
+  parar_vender: number | null
+  atualizado_em: DataHora
+}
+
+/** Valor total do pedido (contrato) do cliente, digitado pela equipe para o quadro de projeção. */
+export type ValorTotalPedido = {
+  cliente: string // chave do cliente
+  valor: number
+  atualizado_em: DataHora
+}
+
 /** Contato lido do CSV de Contatos do Bling. */
 export type ContatoLido = Pick<
   Cliente,

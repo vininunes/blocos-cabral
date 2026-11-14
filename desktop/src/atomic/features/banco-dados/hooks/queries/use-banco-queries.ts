@@ -7,11 +7,14 @@ import {
   desfazerImportacao,
   fetchClientes,
   fetchEstadoBanco,
+  fetchProjecao,
   fetchProvisoes,
   fetchTabelaBanco,
   lancarProvisaoEmLote,
   salvarClientes,
+  salvarMetas,
   salvarProvisoes,
+  salvarValorTotal,
 } from '../../api/http-banco'
 
 // mesmo prefixo das queries do relatório: importar/desfazer/salvar invalida tudo de uma vez
@@ -85,5 +88,30 @@ export function useLancarProvisaoEmLoteMutation() {
   return useMutation({
     mutationFn: lancarProvisaoEmLote,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: RELATORIO_BASE_QUERY_KEY }),
+  })
+}
+
+/** Quadro de projeção (mês atual e seguinte); recarrega quando a provisão muda (mesmo prefixo). */
+export function useProjecaoQuery() {
+  return useQuery({
+    queryKey: [...CHAVE, 'projecao'],
+    queryFn: ({ signal }) => fetchProjecao(signal),
+    staleTime: Infinity,
+  })
+}
+
+export function useSalvarMetasMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: salvarMetas,
+    onSuccess: (dados) => queryClient.setQueryData([...CHAVE, 'projecao'], dados),
+  })
+}
+
+export function useSalvarValorTotalMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: salvarValorTotal,
+    onSuccess: (dados) => queryClient.setQueryData([...CHAVE, 'projecao'], dados),
   })
 }

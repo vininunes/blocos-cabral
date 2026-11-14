@@ -22,9 +22,13 @@ export function RelatorioPeriodoFaixa({
   const setF = useSetAtom(relatorioFiltrosAtom)
   const ir = (n: Navegacao) =>
     setF((x) => ({ ...x, ancora: n.ancora, de: n.de ?? x.de, ate: n.ate ?? x.ate }))
-  const sub = rel.b
-    ? t('relatorioFiltros.comparando', { b: rel.b.rotulo, modo: resumoModo(rel.modo) })
-    : t('relatorioFiltros.semComparacao')
+  // Todo o período não tem anterior nem próximo
+  const fixo = rel.a.tipo === 'Todo o período'
+  const sub = fixo
+    ? 'Todos os dados do banco · sem comparação'
+    : rel.b
+      ? t('relatorioFiltros.comparando', { b: rel.b.rotulo, modo: resumoModo(rel.modo) })
+      : t('relatorioFiltros.semComparacao')
 
   return (
     <FloatCard className="flex min-w-72 flex-1 items-center gap-1 px-1 py-1">
@@ -33,6 +37,7 @@ export function RelatorioPeriodoFaixa({
           variant="ghost"
           size="icon"
           className="size-8"
+          disabled={fixo}
           onClick={() => ir(rel.navegacao.anterior)}
         >
           <ChevronLeft className="size-4" />
@@ -51,6 +56,7 @@ export function RelatorioPeriodoFaixa({
           variant="ghost"
           size="icon"
           className="size-8"
+          disabled={fixo}
           onClick={() => ir(rel.navegacao.proximo)}
         >
           <ChevronRight className="size-4" />

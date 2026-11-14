@@ -18,6 +18,7 @@ const TIPOS: TipoPeriodo[] = [
   'Semestre',
   'Ano',
   'Personalizado',
+  'Todo o período',
 ]
 const FILTROS: Filtro[] = ['Todos', 'Em processo', 'Aprovado', 'Entregue', 'Faturado', 'Cancelado']
 
@@ -25,7 +26,7 @@ type Intervalo = { inicio: DiaIso; fim: DiaIso } | null | undefined
 
 /**
  * Status do relatório (Todos, Em processo, Aprovado...), à esquerda do tipo de período: mesmo
- * float card, esticado na altura da linha. Vale também nas abas da base inteira.
+ * float card, esticado na altura da linha.
  */
 export function RelatorioFiltroStatus() {
   const [f, setF] = useAtom(relatorioFiltrosAtom)
@@ -75,14 +76,14 @@ export function RelatorioTipoPeriodo({ periodoA }: { periodoA?: Intervalo }) {
 
 /**
  * "Comparar com" como page action do design system (float card, sem rótulo nem tooltip), na
- * linha das abas do relatório. Nas abas da base inteira não aparece.
+ * linha das abas do relatório. Em Todo o período não aparece (não há período anterior).
  */
 export function RelatorioFiltrosAcoes({
   periodoB,
   semComparacao = false,
 }: {
   periodoB?: Intervalo
-  /** Abas da base inteira: sem "Comparar com". */
+  /** Todo o período: sem "Comparar com". */
   semComparacao?: boolean
 }) {
   const [f, setF] = useAtom(relatorioFiltrosAtom)

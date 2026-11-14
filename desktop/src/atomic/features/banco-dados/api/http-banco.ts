@@ -5,11 +5,14 @@ import type {
   EstadoBanco,
   PedidoClientes,
   PedidoExportarTabela,
+  PedidoMetas,
   PedidoProvisaoLote,
   PedidoProvisoes,
+  PedidoValorTotal,
   Provisao,
   RespostaClientes,
   RespostaDesfazer,
+  ResultadoProjecao,
   TabelaBanco,
 } from '@server/relatorio/api-tipos'
 
@@ -54,6 +57,18 @@ export async function salvarProvisoes(cliente: string, pedido: PedidoProvisoes) 
 export async function lancarProvisaoEmLote(pedido: PedidoProvisaoLote) {
   return (await relatorioApiInstance.post<{ clientes: number }>('/banco/provisoes-lote', pedido))
     .data
+}
+
+export async function fetchProjecao(signal?: AbortSignal) {
+  return (await relatorioApiInstance.get<ResultadoProjecao>('/projecao', { signal })).data
+}
+
+export async function salvarMetas(pedido: PedidoMetas) {
+  return (await relatorioApiInstance.put<ResultadoProjecao>('/projecao/metas', pedido)).data
+}
+
+export async function salvarValorTotal(pedido: PedidoValorTotal) {
+  return (await relatorioApiInstance.put<ResultadoProjecao>('/projecao/valor-total', pedido)).data
 }
 
 /** Gera em saida/ o .xlsx de uma tabela do Banco de dados (as linhas da tela). */

@@ -25,12 +25,14 @@ import type {
   ContatoLido,
   ItemPedido,
   ItemProposta,
+  MetaVendas,
   Nota,
   Proposta,
   PropostaLida,
   Provisao,
   ResumoImportacao,
   TipoArquivo,
+  ValorTotalPedido,
 } from './tipos'
 import { chaveNome, fmtData, norm } from './utils'
 
@@ -45,6 +47,9 @@ export type Tabelas = {
   arquivos: ArquivoImportado[]
   clientes: Cliente[]
   provisoes: Provisao[]
+  /** Quadro de projeção: metas do mês e valor total do pedido por cliente (dados da equipe). */
+  metas: MetaVendas[]
+  valoresPedido: ValorTotalPedido[]
 }
 
 const MES_RE = /^\d{4}-(0[1-9]|1[0-2])$/
@@ -80,6 +85,8 @@ const vazia = (): Tabelas => ({
   arquivos: [],
   clientes: [],
   provisoes: [],
+  metas: [],
+  valoresPedido: [],
 })
 
 /** Ordena (estável) por várias chaves; null vai para o fim, como no pandas. */
@@ -563,6 +570,43 @@ export class Base {
     return unicos.length
   }
 
+  // ------------------------------------------------------------ projeção
+
+  /** Grava as metas do mês; as três vazias apagam o mês (ele passa a usar o anterior). */
+  salvarMeta(
+    mes: string,
+    valores: Partial<Record<'vender_mais' | 'meta_mensal' | 'parar_vender', number | null>>
+  ) {
+    if (!MES_RE.test(mes)) throw new Error(`Mês inválido nas metas: ${mes}`)
+    const num = (v: number | null | undefined) => {
+      if (v === null || v === undefined) return null
+      const n = Number(v)
+      if (!Number.isFinite(n) || n < 0) throw new Error('As metas devem ser zero ou positivas.')
+      return n
+    }
+    const meta: MetaVendas = {
+      mes,
+      vender_mais: num(valores.vender_mais),
+      meta_mensal: num(valores.meta_mensal),
+      parar_vender: num(valores.parar_vender),
+      atualizado_em: agora(),
+    }
+    this.t.metas = this.t.metas.filter((m) => m.mes !== mes)
+    if (meta.vender_mais !== null || meta.meta_mensal !== null || meta.parar_vender !== null)
+      this.t.metas = ordenar([...this.t.metas, meta], (m) => m.mes)
+    return meta
+  }
+
+  /** Grava (ou apaga, com null) o valor total do pedido do cliente. */
+  salvarValorTotalPedido(cliente: string, valor: number | null) {
+    if (!cliente) throw new Error('Cliente não informado.')
+    const v = valor === null || valor === undefined ? null : Number(valor)
+    if (v !== null && (!Number.isFinite(v) || v < 0))
+      throw new Error('O valor total do pedido deve ser zero ou positivo.')
+    this.t.valoresPedido = this.t.valoresPedido.filter((x) => x.cliente !== cliente)
+    if (v !== null) this.t.valoresPedido.push({ cliente, valor: v, atualizado_em: agora() })
+  }
+
   // ------------------------------------------------------------ desfazer importação
 
   /**
@@ -606,7 +650,13 @@ export class Base {
       if (v.editados?.length) p.editados = [...v.editados]
     }
     nova.ligar()
-    this.t = { ...nova.t, clientes: this.t.clientes, provisoes: this.t.provisoes }
+    this.t = {
+      ...nova.t,
+      clientes: this.t.clientes,
+      provisoes: this.t.provisoes,
+      metas: this.t.metas,
+      valoresPedido: this.t.valoresPedido,
+    }
     this.sincronizarClientes()
     return {
       removido: alvo.arquivo,

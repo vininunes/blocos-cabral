@@ -95,6 +95,8 @@ export async function lerBaseXlsx(caminho: string): Promise<Tabelas> {
     arquivos: [],
     clientes: [],
     provisoes: [],
+    metas: [],
+    valoresPedido: [],
   }
   for (const [aba, cols] of Object.entries(COLUNAS_BASE)) {
     const ws = wb.getWorksheet(aba)

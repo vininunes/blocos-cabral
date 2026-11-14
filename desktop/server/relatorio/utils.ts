@@ -124,6 +124,10 @@ export const MESES = [
   'Novembro',
   'Dezembro',
 ]
+/** '2026-11' -> 'nov/26' */
+export const rotuloMes = (mes: string) =>
+  `${MESES[Number(mes.slice(5, 7)) - 1].slice(0, 3).toLowerCase()}/${mes.slice(2, 4)}`
+
 export const DIAS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
 
 export { ms }

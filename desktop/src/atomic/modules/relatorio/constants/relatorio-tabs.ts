@@ -8,6 +8,7 @@ import {
   Package,
   TableProperties,
   Target,
+  Truck,
   UserRound,
 } from 'lucide-react'
 
@@ -16,6 +17,7 @@ export const RELATORIO_TABS = [
   { value: 'indicadores', icon: Gauge },
   { value: 'visao-geral', icon: LayoutDashboard },
   { value: 'pedidos', icon: ClipboardList },
+  { value: 'acompanhamento', icon: Truck },
   { value: 'vendedores', icon: UserRound },
   { value: 'clientes', icon: Building2 },
   { value: 'produtos', icon: Package },
@@ -26,14 +28,3 @@ export const RELATORIO_TABS = [
 ] as const
 
 export type RelatorioTab = (typeof RELATORIO_TABS)[number]['value']
-
-/** Abas que mostram a base inteira (sem filtro de período nem comparação). */
-export const ABAS_BASE_INTEIRA: ReadonlySet<RelatorioTab> = new Set([
-  'pedidos',
-  'vendedores',
-  'clientes',
-  'produtos',
-  'cidades',
-  'provisao',
-  'detalhamento',
-])

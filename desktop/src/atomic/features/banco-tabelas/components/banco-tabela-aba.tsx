@@ -24,6 +24,11 @@ const TABELAS: Record<Exclude<TabelaBanco, 'arquivos'>, { nome: string; ajuda: s
     nome: 'Notas fiscais',
     ajuda: 'Relatório "Notas Fiscais por Operação" do Bling (PDF).',
   },
+  precos: {
+    nome: 'Preços',
+    ajuda:
+      'Relatório "Vendas por cliente / produto" do Bling (CSV): preço médio de cada produto por cliente, no período informado na importação. Cada arquivo é um retrato do seu período.',
+  },
 }
 
 /** Uma tabela do banco, com busca e exportação; importar fica em Arquivos importados. */

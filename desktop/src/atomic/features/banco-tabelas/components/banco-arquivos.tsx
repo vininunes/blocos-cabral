@@ -27,10 +27,10 @@ export function BancoArquivos() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <p className="shrink-0 text-xs text-muted-foreground">
-        Todas as importações ficam aqui: orçamentos, vendas e contatos (CSV) e notas fiscais (PDF),
-        vários de uma vez, com o tipo reconhecido pelo conteúdo. Desfazer tira da base o que veio só
-        daquele arquivo: a base é refeita com os demais (a partir das cópias em entrada/), mantendo
-        o feedback e as correções feitas à mão.
+        Todas as importações ficam aqui: orçamentos, vendas, contatos e preços (CSV) e notas fiscais
+        (PDF), vários de uma vez, com o tipo reconhecido pelo conteúdo. Desfazer tira da base o que
+        veio só daquele arquivo: a base é refeita com os demais (a partir das cópias em entrada/),
+        mantendo o feedback e as correções feitas à mão.
       </p>
       <BancoTabela
         conteudo={data}

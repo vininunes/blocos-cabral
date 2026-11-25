@@ -97,10 +97,11 @@ export async function lerBaseXlsx(caminho: string): Promise<Tabelas> {
     provisoes: [],
     metas: [],
     valoresPedido: [],
+    precos: [],
   }
   for (const [aba, cols] of Object.entries(COLUNAS_BASE)) {
     const ws = wb.getWorksheet(aba)
-    if (!ws) continue
+    if (!ws || !ABAS[aba]) continue // abas que não vêm do app antigo (ex.: Precos)
     const porTitulo = new Map(Object.entries(cols).map(([k, titulo]) => [titulo, k]))
     const chaves: (string | undefined)[] = []
     ws.getRow(1).eachCell((c, j) => (chaves[j] = porTitulo.get(String(cru(c.value) ?? ''))))

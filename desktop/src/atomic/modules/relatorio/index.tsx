@@ -23,6 +23,7 @@ import {
 import { RelatorioPeriodoFaixa } from '@/atomic/features/relatorio-filtros/components/relatorio-periodo-faixa'
 import { RelatorioIndicadores } from '@/atomic/features/relatorio-indicadores/components/relatorio-indicadores'
 import { RelatorioPedidos } from '@/atomic/features/relatorio-pedidos/components/relatorio-pedidos'
+import { RelatorioPrecos } from '@/atomic/features/relatorio-precos/components/relatorio-precos'
 import { RelatorioProvisao } from '@/atomic/features/relatorio-provisao/components/relatorio-provisao'
 import { RelatorioRanking } from '@/atomic/features/relatorio-rankings/components/relatorio-ranking'
 import { RelatorioVisaoGeral } from '@/atomic/features/relatorio-visao-geral/components/relatorio-visao-geral'
@@ -95,6 +96,7 @@ function Conteudo() {
         {tab === 'vendedores' && <RelatorioRanking rel={rel} ranking="vendedores" />}
         {tab === 'clientes' && <RelatorioRanking rel={rel} ranking="clientes" />}
         {tab === 'produtos' && <RelatorioRanking rel={rel} ranking="produtos" />}
+        {tab === 'precos' && <RelatorioPrecos rel={rel} />}
         {tab === 'cidades' && <RelatorioRanking rel={rel} ranking="cidades" />}
         {tab === 'provisao' && <RelatorioProvisao rel={rel} />}
         {tab === 'detalhamento' && <RelatorioDetalhamento rel={rel} />}

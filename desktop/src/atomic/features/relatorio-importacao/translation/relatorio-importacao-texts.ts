@@ -14,6 +14,9 @@ export const relatorioImportacaoTextsPTBR = {
     contatos: '4. Contatos — cadastro de clientes (CSV)',
     contatosAjuda:
       'Bling → Cadastros → Contatos → selecionar → Exportar (CSV). Completa endereço, telefone e e-mail dos clientes.',
+    precos: '5. Preços — vendas por cliente / produto (CSV)',
+    precosAjuda:
+      'Bling → Relatórios → Vendas por cliente / produto → período → Exportar (CSV). Informe o mesmo período ao importar: o arquivo não traz datas.',
     soltar: 'Arraste os arquivos aqui ou clique para escolher',
     soltarFormatos: 'Aceita {{formatos}}',
     comoExportar: 'Como exportar do Bling',
@@ -22,7 +25,12 @@ export const relatorioImportacaoTextsPTBR = {
       vendas: 'Vendas',
       notas: 'Notas fiscais',
       contatos: 'Contatos',
+      precos: 'Preços',
     },
+    periodo: 'Período do relatório:',
+    periodoAte: 'até',
+    semPeriodo: 'Informe o período usado no Bling (o relatório de preços não traz datas).',
+    periodoInvalido: 'O início do período é depois do fim.',
     verificando: 'Verificando…',
     jaImportado: 'Já importado antes (como {{nome}}): será ignorado.',
     repetidoSelecao: 'Mesmo conteúdo de {{nome}}, escolhido acima: será ignorado.',

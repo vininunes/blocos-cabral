@@ -261,6 +261,24 @@ export const COLUNAS_BASE: Record<string, Record<string, string>> = {
     linhas: 'Linhas',
     hash: 'Identificador do conteúdo',
   },
+  Precos: {
+    de: 'Período início',
+    ate: 'Período fim',
+    cliente: 'Cliente',
+    cnpj: 'CNPJ/CPF',
+    cidade: 'Cidade',
+    uf: 'UF',
+    produto: 'Produto',
+    codigo: 'Código',
+    qtd: 'Quantidade',
+    preco: 'Preço médio',
+    valor: 'Valor',
+    frete: 'Frete',
+    desconto: 'Desconto',
+    outras: 'Outras despesas',
+    total: 'Total venda',
+    arquivo: 'Arquivo (identificador)',
+  },
 }
 
 const LARGURAS: Record<string, number> = {
@@ -289,6 +307,8 @@ const MOEDA = new Set([
   'total_faturado',
   'total_nota',
   'vlr_total',
+  'preco',
+  'total',
 ])
 const DATA_HORA_COLS = new Set([
   'ult_ocorrencia',
@@ -361,6 +381,7 @@ export async function exportarBase(base: Base): Promise<Uint8Array> {
     Notas: base.notas,
     ItensPropostas: base.itensPropostas,
     Arquivos: base.t.arquivos,
+    Precos: base.t.precos,
   }
   for (const [aba, cols] of Object.entries(COLUNAS_BASE)) {
     const chaves = Object.keys(cols)
@@ -379,7 +400,7 @@ export async function exportarBase(base: Base): Promise<Uint8Array> {
           ? '#,##0.##'
           : DATA_HORA_COLS.has(c)
             ? 'dd/mm/yyyy hh:mm'
-            : c.startsWith('dt_') || c === 'data'
+            : c.startsWith('dt_') || c === 'data' || c === 'de' || c === 'ate'
               ? 'dd/mm/yyyy'
               : null
       if (fmt) for (let i = 2; i <= fontes[aba].length + 1; i++) ws.getCell(i, j + 1).numFmt = fmt

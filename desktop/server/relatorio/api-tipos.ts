@@ -5,11 +5,11 @@
 import type { Dimensao, Filtro, FormatoKpi, Tabela } from './metricas'
 import type { ResultadoMigracao } from './migracao'
 import type { ModoComparacao, TipoPeriodo } from './periodo'
-import type { ResumoImportacao, TipoArquivo } from './tipos'
+import type { PeriodoPrecos, ResumoImportacao, TipoArquivo } from './tipos'
 
 export type { Celula, Dimensao, Filtro, FormatoKpi, Tabela } from './metricas'
 export type { ModoComparacao, TipoPeriodo } from './periodo'
-export type { ResumoImportacao, TipoArquivo } from './tipos'
+export type { PeriodoPrecos, ResumoImportacao, TipoArquivo } from './tipos'
 export type { ResultadoMigracao } from './migracao'
 
 /** Dia 'AAAA-MM-DD'. */
@@ -132,6 +132,8 @@ export type ArquivoParaImportar = {
   nome: string
   tipo?: TipoArquivo
   conteudo: string /* base64 */
+  /** Relatório de preços: período do filtro usado no Bling (o arquivo não traz datas). */
+  periodo?: PeriodoPrecos | null
 }
 export type PedidoImportacao = { arquivos: ArquivoParaImportar[] }
 
@@ -151,7 +153,13 @@ export type ArquivoGerado = { nome: string; caminho: string }
 
 // ---------------------------------------------------------------- banco de dados
 
-export type TabelaBanco = 'propostas' | 'itensPropostas' | 'pedidos' | 'notas' | 'arquivos'
+export type TabelaBanco =
+  | 'propostas'
+  | 'itensPropostas'
+  | 'pedidos'
+  | 'notas'
+  | 'precos'
+  | 'arquivos'
 
 /** GET /api/banco: cobertura de cada fonte, dia a dia (dias com registros e quantos). */
 export type EstadoBanco = {
@@ -234,3 +242,15 @@ export type {
   ResultadoAcompanhamento,
   Situacao,
 } from './acompanhamento'
+
+/** Preços praticados (aba Preços). GET /api/precos?retrato=&de=&ate= */
+export type {
+  ClientePreco,
+  ConsultaPrecos,
+  EvolucaoProduto,
+  FamiliaPreco,
+  PontoPreco,
+  ProdutoPreco,
+  ResultadoPrecos,
+  RetratoPrecos,
+} from './precos'

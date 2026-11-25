@@ -9,6 +9,7 @@ export const relatorioTextsPTBR = {
       vendedores: 'Vendedores',
       clientes: 'Clientes',
       produtos: 'Produtos',
+      precos: 'Preços',
       cidades: 'Cidades',
       provisao: 'Provisão',
       detalhamento: 'Detalhamento',

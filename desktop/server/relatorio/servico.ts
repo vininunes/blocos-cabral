@@ -37,10 +37,11 @@ import { migrarBaseAntiga, type ResultadoMigracao } from './migracao'
 import { comparacao, Periodo, SEM_COMPARACAO, TODO_PERIODO } from './periodo'
 import { COLUNAS_BASE, excelRelatorio, exportarBase, exportarTabela } from './planilha'
 import { gerarPpt, nomeArquivo } from './ppt'
+import { calcularPrecos, type ConsultaPrecos } from './precos'
 import { calcularProjecao } from './projecao'
 import { calcularProvisao } from './provisao'
 import type { TipoArquivo } from './tipos'
-import { fmtMoeda } from './utils'
+import { fmtData, fmtMoeda } from './utils'
 
 export type Pastas = { entrada: string; dados: string; saida: string }
 
@@ -305,6 +306,7 @@ export function criarServico(
         nome: guardarEmEntrada(pastas.entrada, a.nome, conteudo),
         conteudo,
         tipo: a.tipo as TipoArquivo,
+        periodo: a.periodo ?? null,
       }
     })
     const resumo = await base.importar(arquivos)
@@ -340,6 +342,7 @@ export function criarServico(
     itensPropostas: ['ItensPropostas', 'Itens das propostas'],
     pedidos: ['Pedidos', 'Pedidos (itens)'],
     notas: ['Notas', 'Notas fiscais'],
+    precos: ['Precos', 'Preços (cliente x produto)'],
     arquivos: ['Arquivos', 'Arquivos importados'],
   }
 
@@ -384,12 +387,22 @@ export function criarServico(
   function tabelaBanco(nome: TabelaBanco): ConteudoTabela {
     if (!(nome in TABELAS)) throw new Error(`Tabela desconhecida: ${nome}`)
     const cols = COLUNAS_BASE[TABELAS[nome][0]]
-    return {
+    const conteudo: ConteudoTabela = {
       colunas: Object.entries(cols).map(([chave, titulo]) => ({ chave, titulo })),
       linhas: (base.t[nome] as unknown as Record<string, string | number | null>[]).map((r) =>
         Object.fromEntries(Object.keys(cols).map((k) => [k, r[k] ?? null]))
       ),
     }
+    // relatórios de preços: o período informado na importação (o arquivo não traz datas)
+    if (nome === 'arquivos') {
+      conteudo.colunas.splice(2, 0, { chave: 'periodo', titulo: 'Período (preços)' })
+      base.t.arquivos.forEach((a, i) => {
+        conteudo.linhas[i].periodo = a.periodo
+          ? `${fmtData(a.periodo.de)} a ${fmtData(a.periodo.ate)}`
+          : null
+      })
+    }
+    return conteudo
   }
 
   function salvarClientes(pedido: PedidoClientes) {
@@ -411,6 +424,12 @@ export function criarServico(
     const r = base.salvarProvisoes(cliente, Number(pedido.ano), pedido.meses ?? [])
     base.salvar()
     return r
+  }
+
+  // ------------------------------------------------------------ preços
+
+  function precos(q: ConsultaPrecos) {
+    return calcularPrecos(base, q)
   }
 
   // ------------------------------------------------------------ projeção
@@ -444,6 +463,7 @@ export function criarServico(
     salvarProvisoes,
     lancarProvisaoEmLote,
     projecao,
+    precos,
     salvarMetas,
     salvarValorTotal,
     clientes: () => indicadoresClientes(base),

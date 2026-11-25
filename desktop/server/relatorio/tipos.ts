@@ -86,9 +86,41 @@ export type ArquivoImportado = {
   importado_em: DataHora
   linhas: number
   hash: string
+  /** Relatório de preços: período do filtro usado no Bling (o arquivo não traz datas). */
+  periodo?: PeriodoPrecos
 }
 
-export type TipoArquivo = 'vendas' | 'orcamentos' | 'notas' | 'contatos'
+export type TipoArquivo = 'vendas' | 'orcamentos' | 'notas' | 'contatos' | 'precos'
+
+/** Período ('AAAA-MM-DD') informado na importação do relatório de preços. */
+export type PeriodoPrecos = { de: Dia; ate: Dia }
+
+/**
+ * Uma linha do relatório "Vendas por cliente / produto" do Bling: o que o cliente comprou do
+ * produto no período do arquivo, com o preço médio. Cada arquivo importado é um retrato
+ * (snapshot) dos preços no seu período; `arquivo` é o hash do arquivo de origem.
+ */
+export type PrecoCliente = {
+  arquivo: string
+  de: Dia
+  ate: Dia
+  cliente: string
+  cnpj: string
+  cidade: string
+  uf: string
+  produto: string
+  codigo: string
+  qtd: number
+  preco: number
+  valor: number
+  frete: number
+  desconto: number
+  outras: number
+  total: number
+}
+
+/** Linha de preço lida do CSV (antes de receber o período e o arquivo). */
+export type PrecoLido = Omit<PrecoCliente, 'arquivo' | 'de' | 'ate'>
 
 /** Proposta lida do CSV de orçamentos (antes de entrar na base). */
 export type PropostaLida = Pick<

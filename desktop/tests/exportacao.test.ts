@@ -109,7 +109,7 @@ describe('PowerPoint e Excel', () => {
 })
 
 describe('base exportada em .xlsx', () => {
-  it('tem as cinco abas com todos os registros e o motivo como lista', async () => {
+  it('tem as seis abas com todos os registros e o motivo como lista', async () => {
     const wb = new ExcelJS.Workbook()
     await wb.xlsx.load((await exportarBase(base)) as unknown as ArrayBuffer)
     expect(wb.worksheets.map((w) => w.name)).toEqual([
@@ -118,6 +118,7 @@ describe('base exportada em .xlsx', () => {
       'Notas',
       'ItensPropostas',
       'Arquivos',
+      'Precos',
     ])
     expect(wb.getWorksheet('Propostas')!.actualRowCount).toBe(base.propostas.length + 1) // a lista do motivo vai 500 linhas além
     expect(wb.getWorksheet('Pedidos')!.rowCount).toBe(base.pedidos.length + 1)

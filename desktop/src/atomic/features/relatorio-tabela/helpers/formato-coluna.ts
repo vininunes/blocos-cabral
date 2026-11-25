@@ -18,9 +18,18 @@ const MOEDA = new Set([
   'Provisionado',
   'Realizado',
 ])
-const PREFIXO_MOEDA = ['Valor', 'Faturado', 'Entregue', 'Aprovado']
+const PREFIXO_MOEDA = ['Valor', 'Faturado', 'Entregue', 'Aprovado', 'Preço']
 const QTD = new Set(['Qtd', 'Quantidade', 'Notas', 'Propostas', 'Canceladas', 'Pedidos'])
-const PCT = new Set(['Variação', '% das emitidas', 'Participação', 'Acumulado', '% atingido'])
+const PCT = new Set([
+  'Variação',
+  '% das emitidas',
+  'Participação',
+  'Acumulado',
+  '% atingido',
+  'Amplitude',
+])
+/** Variação com sinal e cor (verde/vermelho). */
+const VARIACAO = new Set(['Variação', 'Vs. média'])
 const DATA = /^\d{4}-\d{2}-\d{2}$/
 
 export type FormatoColuna = 'moeda' | 'diferenca' | 'variacao' | 'pct' | 'qtd' | 'texto'
@@ -29,7 +38,7 @@ export function formatoColuna(nome: string, amostra: Celula[]): FormatoColuna {
   const numerica = amostra.some((v) => typeof v === 'number')
   if (!numerica) return 'texto'
   if (nome === 'Diferença') return 'diferenca'
-  if (nome === 'Variação') return 'variacao'
+  if (VARIACAO.has(nome)) return 'variacao'
   if (MOEDA.has(nome) || PREFIXO_MOEDA.some((p) => nome.startsWith(p))) return 'moeda'
   if (PCT.has(nome)) return 'pct'
   if (QTD.has(nome)) return 'qtd'

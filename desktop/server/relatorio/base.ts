@@ -18,7 +18,14 @@ import path from 'node:path'
 
 import * as C from './config'
 import { addDias, agora, dia, difDias, difDiasAbs, type Data, type Dia } from './datas'
-import { detectarTipo, lerContatos, lerNotasPdf, lerOrcamentos, lerVendas } from './leitores'
+import {
+  detectarTipo,
+  lerContatos,
+  lerNotasPdf,
+  lerOrcamentos,
+  lerPrecos,
+  lerVendas,
+} from './leitores'
 import type {
   ArquivoImportado,
   Cliente,
@@ -27,6 +34,9 @@ import type {
   ItemProposta,
   MetaVendas,
   Nota,
+  PeriodoPrecos,
+  PrecoCliente,
+  PrecoLido,
   Proposta,
   PropostaLida,
   Provisao,
@@ -50,6 +60,8 @@ export type Tabelas = {
   /** Quadro de projeção: metas do mês e valor total do pedido por cliente (dados da equipe). */
   metas: MetaVendas[]
   valoresPedido: ValorTotalPedido[]
+  /** Relatórios de preços (vendas por cliente/produto), um retrato por arquivo importado. */
+  precos: PrecoCliente[]
 }
 
 const MES_RE = /^\d{4}-(0[1-9]|1[0-2])$/
@@ -57,7 +69,25 @@ const MES_RE = /^\d{4}-(0[1-9]|1[0-2])$/
 const provisaoMensal = (p: Provisao) =>
   typeof p?.mes === 'string' && MES_RE.test(p.mes) && typeof p.valor === 'number'
 
-export type ArquivoEntrada = { nome: string; conteudo: Uint8Array; tipo?: TipoArquivo | '' }
+export type ArquivoEntrada = {
+  nome: string
+  conteudo: Uint8Array
+  tipo?: TipoArquivo | ''
+  /** Relatório de preços: período do filtro usado no Bling (obrigatório para esse tipo). */
+  periodo?: PeriodoPrecos | null
+}
+
+const DIA_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/** Valida o período informado para um relatório de preços. */
+export function validarPeriodoPrecos(p: PeriodoPrecos | null | undefined): PeriodoPrecos {
+  if (!p || !DIA_RE.test(p.de ?? '') || !DIA_RE.test(p.ate ?? ''))
+    throw new Error(
+      'informe o período (início e fim) do relatório de preços: o arquivo do Bling não traz datas'
+    )
+  if (p.de > p.ate) throw new Error('o início do período é depois do fim')
+  return { de: p.de, ate: p.ate }
+}
 
 /** Campos da equipe na tabela Clientes (a importação nunca sobrescreve). */
 export const EDITAVEIS_CLIENTE = ['grupo', 'segmento', 'situacao', 'observacoes'] as const
@@ -87,6 +117,7 @@ const vazia = (): Tabelas => ({
   provisoes: [],
   metas: [],
   valoresPedido: [],
+  precos: [],
 })
 
 /** Ordena (estável) por várias chaves; null vai para o fim, como no pandas. */
@@ -221,16 +252,22 @@ export class Base {
       novas_propostas: 0,
     }
     const vistos = this.hashes()
-    const ordem: Record<string, number> = { vendas: 0, orcamentos: 1, notas: 2, contatos: 3 }
+    const ordem: Record<string, number> = {
+      vendas: 0,
+      orcamentos: 1,
+      notas: 2,
+      contatos: 3,
+      precos: 4,
+    }
     const fila = ordenar(
       arquivos.map((a) => ({ ...a, tipo: a.tipo || detectarTipo(a.nome, a.conteudo) })),
       (a) => ordem[a.tipo] ?? 9,
       (a) => a.nome
     )
-    for (const { nome, conteudo, tipo } of fila) {
+    for (const { nome, conteudo, tipo, periodo } of fila) {
       if (!tipo) {
         resumo.erros.push(
-          `${nome}: tipo não reconhecido (não parece um export de orçamentos, vendas ou contatos do Bling, nem o PDF de notas)`
+          `${nome}: tipo não reconhecido (não parece um export de orçamentos, vendas, contatos ou vendas por cliente/produto do Bling, nem o PDF de notas)`
         )
         continue
       }
@@ -243,13 +280,17 @@ export class Base {
         continue
       }
       let n: number
+      let periodoArquivo: PeriodoPrecos | undefined
       try {
         if (tipo === 'vendas') n = this.importarVendas(lerVendas(conteudo, nome))
         else if (tipo === 'orcamentos') {
           const { propostas, itens } = lerOrcamentos(conteudo, nome)
           n = this.importarOrcamentos(propostas, itens, resumo)
         } else if (tipo === 'contatos') n = this.importarContatos(lerContatos(conteudo))
-        else n = this.importarNotas(await lerNotasPdf(conteudo, nome))
+        else if (tipo === 'precos') {
+          periodoArquivo = validarPeriodoPrecos(periodo)
+          n = this.importarPrecos(lerPrecos(conteudo), h, periodoArquivo)
+        } else n = this.importarNotas(await lerNotasPdf(conteudo, nome))
       } catch (e) {
         // mostra o erro do arquivo e segue com os outros
         resumo.erros.push(`${nome}: ${e instanceof Error ? e.message : String(e)}`)
@@ -257,7 +298,14 @@ export class Base {
       }
       this.t.arquivos = [
         ...this.t.arquivos.filter((a) => a.hash !== h),
-        { arquivo: nome, tipo, importado_em: agora(), linhas: n, hash: h },
+        {
+          arquivo: nome,
+          tipo,
+          importado_em: agora(),
+          linhas: n,
+          hash: h,
+          ...(periodoArquivo ? { periodo: periodoArquivo } : {}),
+        },
       ]
       vistos.set(h, nome)
       resumo.importados.push(`${nome} (${n} linhas)`)
@@ -290,6 +338,29 @@ export class Base {
       (r) => r.pedido
     )
     return ids.size
+  }
+
+  /**
+   * Um relatório de preços vira um retrato do período informado. Reimportar o mesmo arquivo ou
+   * outro arquivo com o mesmo período troca o retrato anterior (o arquivo substituído sai da
+   * lista de arquivos).
+   */
+  private importarPrecos(lidas: PrecoLido[], hash: string, periodo: PeriodoPrecos) {
+    const mesmoPeriodo = new Set(
+      this.t.arquivos
+        .filter(
+          (a) =>
+            a.tipo === 'precos' && a.periodo?.de === periodo.de && a.periodo?.ate === periodo.ate
+        )
+        .map((a) => a.hash)
+    )
+    mesmoPeriodo.add(hash)
+    this.t.arquivos = this.t.arquivos.filter((a) => a.hash === hash || !mesmoPeriodo.has(a.hash))
+    this.t.precos = [
+      ...this.t.precos.filter((p) => !mesmoPeriodo.has(p.arquivo)),
+      ...lidas.map((l) => ({ ...l, arquivo: hash, ...periodo })),
+    ]
+    return lidas.length
   }
 
   private importarNotas(novas: Nota[]) {
@@ -635,7 +706,10 @@ export class Base {
 
     const nova = new Base()
     for (const { a, conteudo } of conteudos) {
-      await nova.importar([{ nome: a.arquivo, conteudo: conteudo!, tipo: a.tipo }], true)
+      await nova.importar(
+        [{ nome: a.arquivo, conteudo: conteudo!, tipo: a.tipo, periodo: a.periodo }],
+        true
+      )
       const reg = nova.t.arquivos.find((x) => x.hash === a.hash)
       if (reg) reg.importado_em = a.importado_em
     }

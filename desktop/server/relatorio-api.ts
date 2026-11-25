@@ -20,6 +20,7 @@
 //   GET  /api/banco/provisoes/:cliente  provisão do cliente (total R$ por mês)
 //   PUT  /api/banco/provisoes/:cliente  troca os 12 meses de um ano da provisão do cliente
 //   POST /api/banco/provisoes-lote      meses preenchidos da provisão para vários clientes
+//   GET  /api/precos?retrato=&de=&ate=  preços praticados (retrato escolhido ou o do período)
 //   GET  /api/projecao                  quadro de projeção (mês atual e seguinte, metas, valor total)
 //   PUT  /api/projecao/metas            metas de vendas de um mês
 //   PUT  /api/projecao/valor-total      valor total do pedido de um cliente
@@ -160,6 +161,16 @@ export function createRelatorioApi(options: RelatorioApiOptions) {
           await exclusivo('Gravação da provisão', () => servico.lancarProvisaoEmLote(pedido))
         )
       }
+      case 'GET /api/precos':
+        return sendJson(
+          res,
+          200,
+          servico.precos({
+            retrato: url.searchParams.get('retrato'),
+            de: url.searchParams.get('de'),
+            ate: url.searchParams.get('ate'),
+          })
+        )
       case 'GET /api/projecao':
         return sendJson(res, 200, servico.projecao())
       case 'PUT /api/projecao/metas': {

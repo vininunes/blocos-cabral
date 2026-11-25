@@ -4,6 +4,7 @@
  * - vendas_*.csv      -> itens de pedidos Atendidos (entregues)
  * - orcamentos_*.csv  -> propostas comerciais (processo de venda) e seus itens
  * - *.pdf             -> relatório "Notas Fiscais por Operação" (uma linha por nota)
+ * - relatorio_*.csv   -> relatório "Vendas por cliente / produto" (preço médio por cliente e produto)
  */
 import { lerCsv } from './csv'
 import { agora, dia, type Data } from './datas'
@@ -12,6 +13,7 @@ import type {
   ItemPedido,
   ItemProposta,
   Nota,
+  PrecoLido,
   PropostaLida,
   TipoArquivo,
 } from './tipos'
@@ -33,6 +35,7 @@ export function tipoArquivo(nome: string): TipoArquivo | '' {
   if (n.startsWith('vendas')) return 'vendas'
   if (n.startsWith('orcamento')) return 'orcamentos'
   if (n.startsWith('contato') || n.startsWith('cliente')) return 'contatos'
+  if (n.startsWith('relatorio') && n.endsWith('.csv')) return 'precos'
   return ''
 }
 
@@ -61,6 +64,8 @@ export function detectarTipo(nome: string, conteudo: Uint8Array): TipoArquivo | 
     )
     if (colunas.has('numero pedido')) return 'vendas'
     if (colunas.has('numero da proposta')) return 'orcamentos'
+    if (colunas.has('preco medio') && colunas.has('cliente') && colunas.has('produto'))
+      return 'precos'
     const contato = [...COLUNAS_CONTATOS.nome, ...COLUNAS_CONTATOS.cnpj]
     if (contato.some((c) => colunas.has(c))) return 'contatos'
   }
@@ -92,6 +97,80 @@ function coluna(t: Tabela, nome: string, obrigatoria = true): (linha: string[]) 
     throw new ArquivoInvalido(`Coluna '${nome}' não encontrada. Colunas do arquivo: [${lista}]...`)
   }
   return () => ''
+}
+
+/**
+ * Relatório "Vendas por cliente / produto" do Bling (CSV). Cada cliente abre um bloco com uma
+ * linha de totais ('NOME - CNPJ/CPF - Cidade/UF', sem produto), seguida dos produtos dele; a
+ * última linha é 'Totais'. O arquivo não traz datas: o período é informado na importação.
+ */
+export function lerPrecos(conteudo: Uint8Array): PrecoLido[] {
+  const t = tabelaCsv(conteudo)
+  const c = {
+    cliente: coluna(t, 'cliente'),
+    produto: coluna(t, 'produto'),
+    codigo: coluna(t, 'codigo'),
+    qtd: coluna(t, 'qtde'),
+    preco: coluna(t, 'preco medio'),
+    valor: coluna(t, 'valor'),
+    frete: coluna(t, 'frete', false),
+    desconto: coluna(t, 'desconto', false),
+    outras: coluna(t, 'outras despesas', false),
+    total: coluna(t, 'total venda', false),
+  }
+  const linhas: PrecoLido[] = []
+  let cli: { cliente: string; cnpj: string; cidade: string; uf: string } | null = null
+  for (const l of t.linhas) {
+    const nomeCliente = limpo(c.cliente(l))
+    const produto = limpo(c.produto(l))
+    if (norm(nomeCliente) === 'totais') break
+    if (!produto) {
+      if (nomeCliente) cli = clienteDoBloco(nomeCliente)
+      continue
+    }
+    if (!cli) continue
+    const qtd = numBr(c.qtd(l))
+    const valor = numBr(c.valor(l))
+    if (!qtd && !valor) continue
+    linhas.push({
+      ...cli,
+      produto,
+      codigo: limpo(c.codigo(l)),
+      qtd,
+      // o preço do Bling vem com 2 casas: recalcula pelo valor e pela quantidade
+      preco: qtd ? valor / qtd : numBr(c.preco(l)),
+      valor,
+      frete: numBr(c.frete(l)),
+      desconto: numBr(c.desconto(l)),
+      outras: numBr(c.outras(l)),
+      total: numBr(c.total(l)) || valor,
+    })
+  }
+  if (!linhas.length)
+    throw new ArquivoInvalido(
+      'Nenhum produto encontrado no relatório de vendas por cliente/produto.'
+    )
+  return linhas
+}
+
+/** 'NOME - 12345678000190 - São Paulo/SP' -> nome, documento, cidade e UF. */
+function clienteDoBloco(texto: string) {
+  const partes = texto.split(' - ').map((p) => p.trim())
+  let cidade = '',
+    uf = '',
+    cnpj = ''
+  const ultima = partes.at(-1) ?? ''
+  const m = /^(.*)\/([A-Za-z]{2})$/.exec(ultima)
+  if (partes.length > 1 && m) {
+    ;[cidade, uf] = [m[1].trim(), m[2].toUpperCase()]
+    partes.pop()
+  }
+  const doc = partes.length > 1 ? soDigitos(partes.at(-1)) : ''
+  if (doc && (doc.length === 11 || doc.length === 14) && /^[\d./-]+$/.test(partes.at(-1)!)) {
+    cnpj = doc
+    partes.pop()
+  }
+  return { cliente: partes.join(' - '), cnpj, cidade, uf }
 }
 
 const vendedor = (s: string) => limpo(s) || '(sem vendedor)'

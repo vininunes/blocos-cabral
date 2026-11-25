@@ -10,6 +10,7 @@ import {
   FileText,
   ListTree,
   Receipt,
+  Tags,
 } from 'lucide-react'
 
 import { Loading } from '@/atomic/base-components/loading'
@@ -29,10 +30,19 @@ const ICONES: Record<Aba, typeof Database> = {
   itensPropostas: ListTree,
   pedidos: ClipboardList,
   notas: Receipt,
+  precos: Tags,
   clientes: Building2,
   arquivos: FileStack,
 }
-const ORDEM: Aba[] = ['propostas', 'itensPropostas', 'pedidos', 'notas', 'clientes', 'arquivos']
+const ORDEM: Aba[] = [
+  'propostas',
+  'itensPropostas',
+  'pedidos',
+  'notas',
+  'precos',
+  'clientes',
+  'arquivos',
+]
 
 /** Banco de dados: período com dados, as tabelas da base e a importação de cada uma. */
 export function Banco() {

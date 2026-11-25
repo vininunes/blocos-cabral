@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 
-import type { RespostaImportacao, TipoArquivo } from '@server/relatorio/api-tipos'
+import type { PeriodoPrecos, RespostaImportacao, TipoArquivo } from '@server/relatorio/api-tipos'
 import {
   CircleAlert,
   CircleCheck,
@@ -15,6 +15,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/atomic/base-components/button'
+import { DatePicker } from '@/atomic/base-components/date-picker'
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,8 @@ import Tooltip from '@/atomic/base-components/tooltip'
 
 import { Dropzone } from '@/atomic/components/dropzone'
 
+import { dateParaDia, diaParaDate } from '@/atomic/features/relatorio-filtros/helpers/datas'
+
 import { cn } from '@/lib/tailwind/utils'
 
 import { verificarArquivo } from '../api/http-relatorio-importacao'
@@ -39,8 +42,9 @@ const FORMATOS: Record<TipoArquivo, string> = {
   vendas: '.csv',
   notas: '.pdf',
   contatos: '.csv',
+  precos: '.csv',
 }
-const TODOS: TipoArquivo[] = ['orcamentos', 'vendas', 'notas', 'contatos']
+const TODOS: TipoArquivo[] = ['orcamentos', 'vendas', 'notas', 'contatos', 'precos']
 
 /** Um arquivo escolhido, com o que a API identificou antes de importar. */
 type Escolhido = {
@@ -51,11 +55,24 @@ type Escolhido = {
   tipo: TipoArquivo | null
   importadoComo: string | null
   falhou: boolean
+  /** Relatório de preços: período do filtro usado no Bling (o arquivo não traz datas). */
+  de: string | null
+  ate: string | null
 }
 
 type Situacao =
   | { vai: true }
-  | { vai: false; aviso: 'verificando' | 'falha' | 'naoReconhecido' | 'outroTipo' | 'jaImportado' }
+  | {
+      vai: false
+      aviso:
+        | 'verificando'
+        | 'falha'
+        | 'naoReconhecido'
+        | 'outroTipo'
+        | 'jaImportado'
+        | 'semPeriodo'
+        | 'periodoInvalido'
+    }
   | { vai: false; aviso: 'repetido'; de: string }
 
 /** Se o arquivo vai ser importado ou, se não, por quê. */
@@ -67,6 +84,10 @@ function situacoes(lista: Escolhido[], tipos: TipoArquivo[]): Situacao[] {
     if (!e.tipo) return { vai: false, aviso: 'naoReconhecido' }
     if (!tipos.includes(e.tipo)) return { vai: false, aviso: 'outroTipo' }
     if (e.importadoComo) return { vai: false, aviso: 'jaImportado' }
+    if (e.tipo === 'precos') {
+      if (!e.de || !e.ate) return { vai: false, aviso: 'semPeriodo' }
+      if (e.de > e.ate) return { vai: false, aviso: 'periodoInvalido' }
+    }
     const igual = vistos.get(e.conteudo)
     if (igual) return { vai: false, aviso: 'repetido', de: igual }
     vistos.set(e.conteudo, e.nome)
@@ -128,7 +149,17 @@ function Resultado({ r }: { r: RespostaImportacao }) {
 }
 
 /** Linha da lista de escolhidos: nome, tipo identificado, aviso e remover. */
-function LinhaArquivo({ e, s, remover }: { e: Escolhido; s: Situacao; remover: () => void }) {
+function LinhaArquivo({
+  e,
+  s,
+  remover,
+  mudarPeriodo,
+}: {
+  e: Escolhido
+  s: Situacao
+  remover: () => void
+  mudarPeriodo: (p: Partial<Pick<Escolhido, 'de' | 'ate'>>) => void
+}) {
   const { t } = useTranslation()
   const tipoCurto = (tipo: TipoArquivo) => t(`relatorioImportacao.tipoCurto.${tipo}`)
   let aviso: string | null = null
@@ -142,8 +173,13 @@ function LinhaArquivo({ e, s, remover }: { e: Escolhido; s: Situacao; remover: (
       aviso = t('relatorioImportacao.jaImportado', { nome: e.importadoComo })
     else if (s.aviso === 'repetido')
       aviso = t('relatorioImportacao.repetidoSelecao', { nome: s.de })
+    else if (s.aviso === 'semPeriodo') aviso = t('relatorioImportacao.semPeriodo')
+    else if (s.aviso === 'periodoInvalido') aviso = t('relatorioImportacao.periodoInvalido')
   }
-  const alerta = !s.vai && s.aviso !== 'verificando'
+  // falta só o período: o aviso é um pedido (não um erro) e os campos ficam logo abaixo
+  const pedePeriodo = !s.vai && (s.aviso === 'semPeriodo' || s.aviso === 'periodoInvalido')
+  const alerta = !s.vai && s.aviso !== 'verificando' && !pedePeriodo
+  const comPeriodo = e.tipo === 'precos' && !e.importadoComo && !e.verificando
   return (
     <li className="flex items-start gap-2 px-3 py-2 text-sm">
       {s.vai || !alerta ? (
@@ -168,6 +204,26 @@ function LinhaArquivo({ e, s, remover }: { e: Escolhido; s: Situacao; remover: (
           <p className={cn('text-xs', alerta ? 'text-amber-700' : 'text-muted-foreground')}>
             {aviso}
           </p>
+        )}
+        {comPeriodo && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-muted-foreground">{t('relatorioImportacao.periodo')}</span>
+            <DatePicker
+              fixedWeeks
+              format="DD/MM/YYYY"
+              buttonClassName="h-7 w-36 text-xs"
+              value={diaParaDate(e.de)}
+              onChange={(d) => mudarPeriodo({ de: dateParaDia(d) })}
+            />
+            <span className="text-muted-foreground">{t('relatorioImportacao.periodoAte')}</span>
+            <DatePicker
+              fixedWeeks
+              format="DD/MM/YYYY"
+              buttonClassName="h-7 w-36 text-xs"
+              value={diaParaDate(e.ate)}
+              onChange={(d) => mudarPeriodo({ ate: dateParaDia(d) })}
+            />
+          </div>
         )}
       </div>
       <Tooltip text={t('relatorioImportacao.remover')}>
@@ -223,6 +279,8 @@ export function RelatorioImportacaoDialog({
           tipo: null,
           importadoComo: null,
           falhou: false,
+          de: null,
+          ate: null,
         },
       ])
       void (async () => {
@@ -298,6 +356,7 @@ export function RelatorioImportacaoDialog({
                     e={e}
                     s={sits[i]}
                     remover={() => setLista((l) => l.filter((x) => x.id !== e.id))}
+                    mudarPeriodo={(p) => atualizar(e.id, p)}
                   />
                 ))}
               </ul>
@@ -346,6 +405,10 @@ export function RelatorioImportacaoDialog({
                       nome: e.nome,
                       tipo: e.tipo!,
                       conteudo: e.conteudo!,
+                      periodo:
+                        e.tipo === 'precos'
+                          ? ({ de: e.de!, ate: e.ate! } satisfies PeriodoPrecos)
+                          : null,
                     })),
                   })
                 }
